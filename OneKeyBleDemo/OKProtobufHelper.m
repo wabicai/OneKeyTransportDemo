@@ -237,22 +237,18 @@
 
 
 + (NSInteger)getMessageTypeForName:(NSString *)name messages:(NSDictionary *)messages {
-    // 使用 GPB 生成的类来获取消息类型
-    Class messageClass = nil;
-    
-    if ([name isEqualToString:@"OnekeyGetFeatures"]) {
-        messageClass = [OnekeyGetFeatures class];
-    } else if ([name isEqualToString:@"GetFeatures"]) {
-        messageClass = [GetFeatures class];
-    }
+    // 直接通过类名获取对应的类
+    Class messageClass = NSClassFromString(name);
     
     if (!messageClass) {
+        NSLog(@"Failed to find class for message name: %@", name);
         return -1;
     }
     
     // 获取消息描述符
     GPBDescriptor *descriptor = [messageClass descriptor];
     if (!descriptor) {
+        NSLog(@"Failed to get descriptor for class: %@", name);
         return -1;
     }
     
