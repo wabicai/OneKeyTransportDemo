@@ -205,31 +205,6 @@
     return result;
 }
 
-+ (id)decodeProtobuf:(id)messages buffer:(NSData *)buffer error:(NSError **)error {
-    if (!buffer) {
-        if (error) {
-            *error = [NSError errorWithDomain:@"com.onekey.ble" 
-                                       code:-1 
-                                   userInfo:@{NSLocalizedDescriptionKey: @"Buffer is nil"}];
-        }
-        return nil;
-    }
-    
-    // For now, assume the buffer contains JSON data
-    NSError *jsonError;
-    id jsonObject = [NSJSONSerialization JSONObjectWithData:buffer options:0 error:&jsonError];
-    
-    if (jsonError) {
-        if (error) {
-            *error = [NSError errorWithDomain:@"com.onekey.ble" 
-                                       code:-1 
-                                   userInfo:@{NSLocalizedDescriptionKey: @"Failed to decode JSON"}];
-        }
-        return nil;
-    }
-    
-    return jsonObject;
-}
 
 + (NSString *)buildOne:(id)messages name:(NSString *)name data:(NSDictionary *)data error:(NSError **)error {
     NSLog(@"=== buildOne Start ===");

@@ -7,7 +7,10 @@
 + (id)checkCall:(id)jsonData error:(NSError **)error;
 + (NSDictionary *)decodeProtocol:(NSData *)data error:(NSError **)error;
 + (id)createMessageFromType:(id)messages typeId:(NSInteger)typeId error:(NSError **)error;
-+ (id)decodeProtobuf:(id)message buffer:(NSData *)buffer error:(NSError **)error;
 + (NSString *)buildOne:(id)messages name:(NSString *)name data:(NSDictionary *)data error:(NSError **)error;
+
+// 工具方法
++ (NSData *)hexStringToData:(NSString *)hexString;
++ (NSString *)dataToHexString:(NSData *)data;
 
 @end 

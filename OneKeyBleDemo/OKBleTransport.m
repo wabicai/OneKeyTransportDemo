@@ -218,25 +218,11 @@
 #pragma mark - Helper Methods
 
 - (NSString *)dataToHexString:(NSData *)data {
-    const unsigned char *bytes = data.bytes;
-    NSMutableString *hex = [NSMutableString stringWithCapacity:data.length * 2];
-    for (NSInteger i = 0; i < data.length; i++) {
-        [hex appendFormat:@"%02x", bytes[i]];
-    }
-    return hex;
+    return [OKProtobufHelper dataToHexString:data];
 }
 
 - (NSData *)hexStringToData:(NSString *)hexString {
-    NSMutableData *data = [NSMutableData dataWithCapacity:hexString.length / 2];
-    for (NSInteger i = 0; i < hexString.length; i += 2) {
-        NSString *hexByte = [hexString substringWithRange:NSMakeRange(i, 2)];
-        NSScanner *scanner = [NSScanner scannerWithString:hexByte];
-        unsigned int value;
-        [scanner scanHexInt:&value];
-        uint8_t byte = value;
-        [data appendBytes:&byte length:1];
-    }
-    return data;
+    return [OKProtobufHelper hexStringToData:hexString];
 }
 
 @end 
