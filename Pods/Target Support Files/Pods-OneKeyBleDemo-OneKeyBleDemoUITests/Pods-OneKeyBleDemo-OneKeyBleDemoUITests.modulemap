@@ -1,0 +1,6 @@
+framework module Pods_OneKeyBleDemo_OneKeyBleDemoUITests {
+  umbrella header "Pods-OneKeyBleDemo-OneKeyBleDemoUITests-umbrella.h"
+
+  export *
+  module * { export * }
+}
