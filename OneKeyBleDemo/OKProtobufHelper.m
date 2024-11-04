@@ -1,5 +1,5 @@
 #import "OKProtobufHelper.h"
-#import "Features.pbobjc.h"
+#import "../MessagesManagement.pbobjc.h"
 
 @implementation OKProtobufHelper
 
