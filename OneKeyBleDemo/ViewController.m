@@ -63,45 +63,136 @@
 
 - (void)getFeatureButtonTapped:(UIButton *)sender {
     [self appendLog:@"=== GetFeatures Request Start ==="];
-    [self appendLog:@"Sending OnekeyGetFeatures request..."];
     
-    [self.bleTransport call:@"988" name:@"OnekeyGetFeatures" data:@{} completion:^(id result, NSError *error) {
+    // Step 1: Enumerate devices
+    [self appendLog:@"Step 1: Enumerating devices..."];
+    
+    [self.bleTransport enumerateDevicesWithCompletion:^(NSArray *devices, NSError *error) {
         if (error) {
             [self appendLog:[NSString stringWithFormat:@"Error: %@", error.localizedDescription]];
             return;
         }
-        NSLog(@"result: %@", result);
         
-        if ([result isKindOfClass:[NSDictionary class]]) {
-            NSDictionary *response = (NSDictionary *)result;
-            [self appendLog:@"=== Response ==="];
-            
-            // 先显示消息类型
-            NSString *type = response[@"type"];
-            if (type) {
-                [self appendLog:[NSString stringWithFormat:@"Type: %@", type]];
-            }
-            
-            // 显示完整的消息内容
-            NSDictionary *message = response[@"message"];
-            if ([message isKindOfClass:[NSDictionary class]]) {
-                [self appendLog:@"\nFeatures {"];
-                
-                // 按字母顺序排序键
-                NSArray *sortedKeys = [[message allKeys] sortedArrayUsingSelector:@selector(compare:)];
-                for (NSString *key in sortedKeys) {
-                    id value = message[key];
-                    NSString *formattedValue = [self formatValue:value];
-                    // 缩进格式化
-                    [self appendLog:[NSString stringWithFormat:@"    %@: %@", key, formattedValue]];
+        if (devices.count == 0) {
+            [self appendLog:@"No devices found"];
+            return;
+        }
+        
+        [self appendLog:[NSString stringWithFormat:@"Found %lu device(s)", (unsigned long)devices.count]];
+        
+        // Get first device
+        NSDictionary *device = devices.firstObject;
+        NSString *path = device[@"path"];
+        NSString *session = device[@"session"];
+        
+        // 如果 session 为空，先尝试获取 session
+        if (!session || [session isEqual:[NSNull null]]) {
+            [self appendLog:@"No session found, trying to acquire one..."];
+            [self.bleTransport acquireDevice:path session:@"null" completion:^(NSError *error) {
+                if (error) {
+                    [self appendLog:@"Failed to acquire initial session"];
+                    return;
                 }
                 
-                [self appendLog:@"}"];
-            }
-            
-            [self appendLog:@"\n=== GetFeatures Request End ==="];
+                // 重新枚举设备以获取新的 session
+                [self.bleTransport enumerateDevicesWithCompletion:^(NSArray *newDevices, NSError *error) {
+                    if (error || newDevices.count == 0) {
+                        [self appendLog:@"Failed to get device with session"];
+                        return;
+                    }
+                    
+                    NSDictionary *newDevice = [self findDeviceWithPath:path inDevices:newDevices];
+                    if (!newDevice) {
+                        [self appendLog:@"Device not found after acquiring session"];
+                        return;
+                    }
+                    
+                    NSString *newSession = newDevice[@"session"];
+                    [self continueWithDevice:newDevice path:path session:newSession];
+                }];
+            }];
+        } else {
+            [self continueWithDevice:device path:path session:session];
         }
     }];
+}
+
+- (void)continueWithDevice:(NSDictionary *)device path:(NSString *)path session:(NSString *)session {
+    // Step 2: Acquire device
+    [self appendLog:@"\nStep 2: Acquiring device..."];
+    
+    [self.bleTransport acquireDevice:path session:session completion:^(NSError *error) {
+        if (error) {
+            [self appendLog:[NSString stringWithFormat:@"Error: %@", error.localizedDescription]];
+            return;
+        }
+        
+        [self appendLog:@"Device acquired successfully"];
+        
+        // Step 3: Call GetFeatures
+        [self appendLog:@"\nStep 3: Calling GetFeatures..."];
+        
+        // 将 session 转换为数字并加1
+        NSInteger sessionValue = [session integerValue];
+        NSString *nextSession = [NSString stringWithFormat:@"%ld", (long)(sessionValue + 1)];
+        
+        [self.bleTransport call:nextSession name:@"OnekeyGetFeatures" data:@{} completion:^(id result, NSError *error) {
+            if (error) {
+                [self appendLog:[NSString stringWithFormat:@"Error: %@", error.localizedDescription]];
+                [self releaseSession:nextSession];
+                return;
+            }
+            
+            if ([result isKindOfClass:[NSDictionary class]]) {
+                [self handleFeatureResponse:result];
+            }
+            
+            [self releaseSession:nextSession];
+        }];
+    }];
+}
+
+- (NSDictionary *)findDeviceWithPath:(NSString *)path inDevices:(NSArray *)devices {
+    for (NSDictionary *device in devices) {
+        if ([device[@"path"] isEqualToString:path]) {
+            return device;
+        }
+    }
+    return nil;
+}
+
+- (void)releaseSession:(NSString *)session {
+    [self appendLog:@"\nStep 4: Releasing session..."];
+    
+    [self.bleTransport releaseSession:session completion:^(NSError *error) {
+        if (error) {
+            [self appendLog:[NSString stringWithFormat:@"Error: %@", error.localizedDescription]];
+        } else {
+            [self appendLog:@"Session released successfully"];
+        }
+        [self appendLog:@"\n=== GetFeatures Request End ==="];
+    }];
+}
+
+- (void)handleFeatureResponse:(NSDictionary *)response {
+    [self appendLog:@"=== Response ==="];
+    
+    NSString *type = response[@"type"];
+    if (type) {
+        [self appendLog:[NSString stringWithFormat:@"Type: %@", type]];
+    }
+    
+    NSDictionary *message = response[@"message"];
+    if ([message isKindOfClass:[NSDictionary class]]) {
+        [self appendLog:@"\nFeatures {"];
+        NSArray *sortedKeys = [[message allKeys] sortedArrayUsingSelector:@selector(compare:)];
+        for (NSString *key in sortedKeys) {
+            id value = message[key];
+            NSString *formattedValue = [self formatValue:value];
+            [self appendLog:[NSString stringWithFormat:@"    %@: %@", key, formattedValue]];
+        }
+        [self appendLog:@"}"];
+    }
 }
 
 - (NSString *)formatValue:(id)value {

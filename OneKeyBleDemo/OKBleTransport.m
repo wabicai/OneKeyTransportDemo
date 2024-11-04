@@ -33,10 +33,8 @@
     // Build request data using buildOne
     NSError *error = nil;
     NSString *requestString = [OKProtobufHelper buildOne:self.messages name:name data:data error:&error];
-    
-    // 添加更多日志
-    NSLog(@"Request Hex String: %@", requestString);
-    NSLog(@"Request Hex String Length: %lu", (unsigned long)requestString.length);
+    NSLog(@"Request Data: %@", requestString);
+    NSLog(@"Request String Length: %lu", (unsigned long)requestString.length);
     
     if (error || !requestString) {
         NSLog(@"Error building request: %@", error);
@@ -44,7 +42,6 @@
         return;
     }
     
-    // Convert hex string to binary data
     NSData *requestData = [self hexStringToData:requestString];
     
     // Create URL request
@@ -102,6 +99,120 @@
     }];
     
     [task resume];
+}
+
+- (void)enumerateDevicesWithCompletion:(void (^)(NSArray *devices, NSError *error))completion {
+    NSLog(@"=== Enumerate Devices Start ===");
+    NSString *urlString = [NSString stringWithFormat:@"%@/enumerate", self.baseUrl];
+    NSLog(@"Request URL: %@", urlString);
+    
+    NSMutableURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:[NSURL URLWithString:urlString]];
+    request.HTTPMethod = @"POST";
+    [self addCommonHeaders:request];
+    
+    NSLog(@"Request Headers: %@", request.allHTTPHeaderFields);
+    
+    NSURLSession *session = [NSURLSession sharedSession];
+    NSURLSessionDataTask *task = [session dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+        NSLog(@"=== Enumerate Response ===");
+        if (error) {
+            NSLog(@"Network Error: %@", error);
+            dispatch_async(dispatch_get_main_queue(), ^{
+                completion(nil, error);
+            });
+            return;
+        }
+        
+        NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)response;
+        NSLog(@"HTTP Status Code: %ld", (long)httpResponse.statusCode);
+        
+        NSString *responseString = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+        NSLog(@"Raw Response: %@", responseString);
+        
+        NSError *jsonError = nil;
+        NSArray *devices = [NSJSONSerialization JSONObjectWithData:data options:0 error:&jsonError];
+        NSLog(@"Parsed Devices: %@", devices);
+        NSLog(@"=== Enumerate Devices End ===\n");
+        
+        completion(devices, jsonError);
+    }];
+    
+    [task resume];
+}
+
+- (void)acquireDevice:(NSString *)path session:(NSString *)session completion:(void (^)(NSError *error))completion {
+    NSLog(@"=== Acquire Device Start ===");
+    NSString *urlString = [NSString stringWithFormat:@"%@/acquire/%@/%@", self.baseUrl, path, session];
+    NSLog(@"Request URL: %@", urlString);
+    
+    NSMutableURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:[NSURL URLWithString:urlString]];
+    request.HTTPMethod = @"POST";
+    [self addCommonHeaders:request];
+    
+    NSLog(@"Request Headers: %@", request.allHTTPHeaderFields);
+    
+    NSURLSession *urlSession = [NSURLSession sharedSession];
+    NSURLSessionDataTask *task = [urlSession dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+        NSLog(@"=== Acquire Response ===");
+        if (error) {
+            NSLog(@"Network Error: %@", error);
+        } else {
+            NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)response;
+            NSLog(@"HTTP Status Code: %ld", (long)httpResponse.statusCode);
+            
+            if (data.length > 0) {
+                NSString *responseString = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+                NSLog(@"Raw Response: %@", responseString);
+            }
+        }
+        NSLog(@"=== Acquire Device End ===\n");
+        
+        dispatch_async(dispatch_get_main_queue(), ^{
+            completion(error);
+        });
+    }];
+    
+    [task resume];
+}
+
+- (void)releaseSession:(NSString *)session completion:(void (^)(NSError *error))completion {
+    NSLog(@"=== Release Session Start ===");
+    NSString *urlString = [NSString stringWithFormat:@"%@/release/%@", self.baseUrl, session];
+    NSLog(@"Request URL: %@", urlString);
+    
+    NSMutableURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:[NSURL URLWithString:urlString]];
+    request.HTTPMethod = @"POST";
+    [self addCommonHeaders:request];
+    
+    NSLog(@"Request Headers: %@", request.allHTTPHeaderFields);
+    
+    NSURLSession *urlSession = [NSURLSession sharedSession];
+    NSURLSessionDataTask *task = [urlSession dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+        NSLog(@"=== Release Response ===");
+        if (error) {
+            NSLog(@"Network Error: %@", error);
+        } else {
+            NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)response;
+            NSLog(@"HTTP Status Code: %ld", (long)httpResponse.statusCode);
+            
+            if (data.length > 0) {
+                NSString *responseString = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+                NSLog(@"Raw Response: %@", responseString);
+            }
+        }
+        NSLog(@"=== Release Session End ===\n");
+        
+        dispatch_async(dispatch_get_main_queue(), ^{
+            completion(error);
+        });
+    }];
+    
+    [task resume];
+}
+
+- (void)addCommonHeaders:(NSMutableURLRequest *)request {
+    [request setValue:@"application/json, text/plain, */*" forHTTPHeaderField:@"Accept"];
+    [request setValue:@"https://jssdk.onekey.so" forHTTPHeaderField:@"Origin"];
 }
 
 #pragma mark - Helper Methods

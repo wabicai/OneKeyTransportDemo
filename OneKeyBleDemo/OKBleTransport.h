@@ -2,17 +2,14 @@
 
 @interface OKBleTransport : NSObject
 
-@property (nonatomic, strong) id messages;
+@property (nonatomic, copy) NSString *baseUrl;
 @property (nonatomic, assign) BOOL configured;
 @property (nonatomic, assign) BOOL stopped;
-@property (nonatomic, copy) NSString *baseUrl;
+@property (nonatomic, strong) NSDictionary *messages;
 
-- (instancetype)init;
-- (instancetype)initWithUrl:(NSString *)url;
-
-- (void)call:(NSString *)session 
-        name:(NSString *)name 
-        data:(NSDictionary *)data 
-  completion:(void (^)(id result, NSError *error))completion;
+- (void)enumerateDevicesWithCompletion:(void (^)(NSArray *devices, NSError *error))completion;
+- (void)acquireDevice:(NSString *)path session:(NSString *)session completion:(void (^)(NSError *error))completion;
+- (void)call:(NSString *)session name:(NSString *)name data:(NSDictionary *)data completion:(void (^)(id result, NSError *error))completion;
+- (void)releaseSession:(NSString *)session completion:(void (^)(NSError *error))completion;
 
 @end 
