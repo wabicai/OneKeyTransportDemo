@@ -21,28 +21,38 @@
     return buffer;
 }
 
-+ (NSDictionary *)decodeProtocolWithData:(NSData *)data {
++ (NSDictionary *)decodeProtocol:(NSData *)data error:(NSError **)error {
     if (!data || data.length < 6) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"com.onekey.ble" 
+                                       code:-1 
+                                   userInfo:@{NSLocalizedDescriptionKey: @"Invalid data length"}];
+        }
         return nil;
     }
     
-    // 读取消息类型
+    // Read message type
     uint16_t type = 0;
     [data getBytes:&type range:NSMakeRange(0, sizeof(type))];
     type = CFSwapInt16BigToHost(type);
     
-    // 读取数据长度
+    // Read data length
     uint32_t length = 0;
     [data getBytes:&length range:NSMakeRange(2, sizeof(length))];
     length = CFSwapInt32BigToHost(length);
     
-    // 验证数据长度
+    // Validate data length
     NSUInteger totalLength = 6 + length;
     if (data.length < totalLength) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"com.onekey.ble" 
+                                       code:-1 
+                                   userInfo:@{NSLocalizedDescriptionKey: @"Data length mismatch"}];
+        }
         return nil;
     }
     
-    // 提取数据
+    // Extract payload data
     NSData *buffer = [data subdataWithRange:NSMakeRange(6, length)];
     
     return @{
@@ -172,7 +182,7 @@
     }
     
     // Decode protocol to get typeId and buffer
-    NSDictionary *protocolData = [self decodeProtocolWithData:data];
+    NSDictionary *protocolData = [self decodeProtocol:data error:error];
     if (!protocolData) {
         if (error) {
             *error = [NSError errorWithDomain:@"com.onekey.ble" 
@@ -267,6 +277,51 @@
         return nil;
     }
     return jsonData;
+}
+
++ (id)createMessageFromType:(id)messages typeId:(NSInteger)typeId error:(NSError **)error {
+    NSString *messageName = [self getMessageNameFromType:typeId messages:messages];
+    
+    if ([messageName isEqualToString:@"Unknown"]) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"com.onekey.ble" 
+                                       code:-1 
+                                   userInfo:@{NSLocalizedDescriptionKey: @"Unknown message type"}];
+        }
+        return nil;
+    }
+    
+    // Create an empty message structure based on the type
+    NSMutableDictionary *message = [NSMutableDictionary dictionary];
+    message[@"type"] = messageName;
+    
+    return message;
+}
+
++ (id)decodeProtobuf:(id)messages buffer:(NSData *)buffer error:(NSError **)error {
+    if (!buffer) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"com.onekey.ble" 
+                                       code:-1 
+                                   userInfo:@{NSLocalizedDescriptionKey: @"Buffer is nil"}];
+        }
+        return nil;
+    }
+    
+    // For now, assume the buffer contains JSON data
+    NSError *jsonError;
+    id jsonObject = [NSJSONSerialization JSONObjectWithData:buffer options:0 error:&jsonError];
+    
+    if (jsonError) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"com.onekey.ble" 
+                                       code:-1 
+                                   userInfo:@{NSLocalizedDescriptionKey: @"Failed to decode JSON"}];
+        }
+        return nil;
+    }
+    
+    return jsonObject;
 }
 
 @end 
