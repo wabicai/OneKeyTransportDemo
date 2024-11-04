@@ -2,60 +2,6 @@
 
 @implementation OKProtobufHelper
 
-+ (NSData *)buildOneWithMessages:(id)messages name:(NSString *)name data:(NSDictionary *)data {
-    // 参考 send.ts 的实现
-    // startLine: 13
-    // endLine: 22
-    
-    // 1. 创建消息
-    NSInteger messageType = [self getMessageTypeFromName:name messages:messages];
-    NSData *buffer = [self encodeProtobufWithMessage:name data:data messages:messages];
-    
-    // 2. 编码协议
-    return [self encodeProtocolWithData:buffer messageType:messageType];
-}
-
-+ (NSDictionary *)receiveOneWithMessages:(id)messages data:(NSString *)data {
-    if (!data || ![data isKindOfClass:[NSString class]]) {
-        return nil;
-    }
-    
-    // Convert hex string to NSData
-    NSData *binaryData = [self hexStringToData:data];
-    if (!binaryData) {
-        return nil;
-    }
-    
-    // 1. Decode protocol
-    NSDictionary *protocolResult = [self decodeProtocolWithData:binaryData];
-    if (!protocolResult) {
-        return nil;
-    }
-    
-    NSInteger typeId = [protocolResult[@"typeId"] integerValue];
-    NSData *buffer = protocolResult[@"buffer"];
-    
-    // 2. Get message name from type ID
-    NSString *messageName = [self getMessageNameFromType:typeId messages:messages];
-    
-    // 3. Decode protobuf message
-    NSDictionary *message = [self decodeProtobufWithBuffer:buffer messageName:messageName messages:messages];
-    
-    // Add logging
-    NSLog(@"=== Decoded Response ===");
-    NSLog(@"Type: %@", messageName);
-    NSLog(@"Message: %@", message);
-    
-    NSDictionary *result = @{
-        @"message": message ?: @{},
-        @"type": messageName ?: @"Unknown"
-    };
-    
-    NSLog(@"Full Result: %@", result);
-    NSLog(@"==================");
-    
-    return result;
-}
 
 + (NSData *)encodeProtocolWithData:(NSData *)data messageType:(NSInteger)messageType {
     // 创建一个 ByteBuffer 来构建协议数据
