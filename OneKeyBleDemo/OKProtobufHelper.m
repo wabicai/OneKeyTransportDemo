@@ -143,18 +143,37 @@
     NSData *buffer = protocolData[@"buffer"];
     NSLog(@"Decoded typeId: %ld, buffer length: %lu", (long)typeId, (unsigned long)buffer.length);
     
-    // 使用 createMessageFromType 获取消息字典
-    NSError *createError = nil;
-    NSDictionary *messageDict = [self createMessageFromType:messages typeId:typeId error:&createError];
-    if (!messageDict) {
+    // 获取消息名称
+    NSString *messageName = [self getMessageNameFromType:typeId messages:messages];
+    NSLog(@"Message name: %@", messageName);
+    
+    // 使用 protobuf 生成的类来创建消息
+    Class messageClass = NSClassFromString(messageName);
+    if (!messageClass) {
+        NSLog(@"Error: Message class not found for name: %@", messageName);
         if (error) {
-            *error = createError;
+            *error = [NSError errorWithDomain:@"com.onekey.ble" 
+                                       code:-1 
+                                   userInfo:@{NSLocalizedDescriptionKey: @"Message class not found"}];
         }
         return nil;
     }
     
-    // 获取消息名称
-    NSString *messageName = [self getMessageNameFromType:typeId messages:messages];
+    NSError *parseError = nil;
+    GPBMessage *message = [messageClass parseFromData:buffer error:&parseError];
+    if (parseError) {
+        NSLog(@"Error parsing protobuf message: %@", parseError);
+        if (error) {
+            *error = parseError;
+        }
+        return nil;
+    }
+    
+    // 解析消息到字典
+    NSMutableDictionary *messageDict = [self parseMessageToDict:message];
+    messageDict[@"type"] = messageName;
+    
+    NSLog(@"Parsed message dict: %@", messageDict);
     
     return @{
         @"type": messageName,
@@ -259,6 +278,8 @@
 
 
 + (id)transformValue:(id)value field:(GPBFieldDescriptor *)field {
+    NSLog(@"Transform value: %@ for field type: %d", value, field.dataType);
+    
     if (!value) {
         return [NSNull null];
     }
@@ -266,7 +287,9 @@
     // Handle bytes type
     if (field.dataType == GPBDataTypeBytes) {
         if ([value isKindOfClass:[NSData class]]) {
-            return [self dataToHexString:value];
+            NSString *hexString = [self dataToHexString:value];
+            NSLog(@"Transformed bytes to hex: %@", hexString);
+            return hexString;
         }
         return value;
     }
@@ -278,6 +301,7 @@
         for (NSUInteger i = 0; i < enumArray.count; i++) {
             [result addObject:@([enumArray valueAtIndex:i])];
         }
+        NSLog(@"Transformed enum array: %@", result);
         return result;
     }
     
@@ -287,12 +311,15 @@
         for (id item in value) {
             [result addObject:[self transformValue:item field:field]];
         }
+        NSLog(@"Transformed array: %@", result);
         return result;
     }
     
     // Handle message types
     if ([value isKindOfClass:[GPBMessage class]]) {
-        return [self parseMessageToDict:(GPBMessage *)value];
+        NSDictionary *dict = [self parseMessageToDict:(GPBMessage *)value];
+        NSLog(@"Transformed message to dict: %@", dict);
+        return dict;
     }
     
     return value;
@@ -304,11 +331,18 @@
     GPBDescriptor *descriptor = [[message class] descriptor];
     NSArray *fields = descriptor.fields;
     
+    NSLog(@"=== Parsing Message to Dict ===");
+    NSLog(@"Message Class: %@", NSStringFromClass([message class]));
+    
     for (GPBFieldDescriptor *field in fields) {
         NSString *fieldName = field.name;
+        NSString *originalName = field.textFormatName; // 使用原始的字段名
         BOOL hasValue = NO;
         
-        // Check if the field has a value using the dynamic has accessor
+        NSLog(@"Processing field - Name: %@, Original: %@, Type: %d", 
+              fieldName, originalName, field.dataType);
+        
+        // 检查字段是否有值
         SEL hasSelector = NSSelectorFromString([NSString stringWithFormat:@"has%@%@",
                                               [[fieldName substringToIndex:1] uppercaseString],
                                               [fieldName substringFromIndex:1]]);
@@ -322,22 +356,23 @@
             [invocation getReturnValue:&hasValue];
         }
         
-        // Get the value using KVC
+        // 获取值
         id value = [message valueForKey:fieldName];
         
-        // Only include the field if:
-        // 1. It has a value (hasValue is true), or
-        // 2. It's an array type, or
-        // 3. It's a non-nil value
-        if (hasValue || 
-            [value isKindOfClass:[NSArray class]] || 
-            value != nil) {
+        NSLog(@"Field %@ has value: %d, Value: %@", fieldName, hasValue, value);
+        
+        if (hasValue || [value isKindOfClass:[NSArray class]] || value != nil) {
             id transformedValue = [self transformValue:value field:field];
             if (transformedValue) {
-                result[fieldName] = transformedValue;
+                // 使用原始的字段名作为 key
+                result[originalName] = transformedValue;
+                NSLog(@"Added field %@ with value: %@", originalName, transformedValue);
             }
         }
     }
+    
+    NSLog(@"=== Parsing Result ===");
+    NSLog(@"Final Dictionary: %@", result);
     
     return result;
 }
