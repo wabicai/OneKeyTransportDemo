@@ -65,7 +65,7 @@
     [self appendLog:@"=== GetFeatures Request Start ==="];
     [self appendLog:@"Sending OnekeyGetFeatures request..."];
     
-    [self.bleTransport call:@"982" name:@"OnekeyGetFeatures" data:@{} completion:^(id result, NSError *error) {
+    [self.bleTransport call:@"988" name:@"OnekeyGetFeatures" data:@{} completion:^(id result, NSError *error) {
         if (error) {
             [self appendLog:[NSString stringWithFormat:@"Error: %@", error.localizedDescription]];
             return;

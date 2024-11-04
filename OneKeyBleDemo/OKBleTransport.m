@@ -30,23 +30,32 @@
         return;
     }
     
-    // Build request data
+    // Build request data using buildOne
     NSError *error = nil;
+    NSString *requestString = [OKProtobufHelper buildOne:self.messages name:name data:data error:&error];
     
-    if (error) {
+    // 添加更多日志
+    NSLog(@"Request Hex String: %@", requestString);
+    NSLog(@"Request Hex String Length: %lu", (unsigned long)requestString.length);
+    
+    if (error || !requestString) {
         NSLog(@"Error building request: %@", error);
         completion(nil, error);
         return;
     }
     
+    // Convert hex string to binary data
+    NSData *requestData = [self hexStringToData:requestString];
     
     // Create URL request
     NSString *urlString = [NSString stringWithFormat:@"%@/call/%@", self.baseUrl, session];
+    NSLog(@"URL: %@", urlString);
+    
     NSMutableURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:[NSURL URLWithString:urlString]];
     request.HTTPMethod = @"POST";
-    request.HTTPBody = [@"000000000000" dataUsingEncoding:NSUTF8StringEncoding];
-
-        // 设置请求头
+    request.HTTPBody = [requestString dataUsingEncoding:NSUTF8StringEncoding];
+    
+    // 设置请求头
     [request setValue:@"text/plain" forHTTPHeaderField:@"Content-Type"];
     [request setValue:@"application/json, text/plain, */*" forHTTPHeaderField:@"Accept"];
     [request setValue:@"https://jssdk.onekey.so" forHTTPHeaderField:@"Origin"];
@@ -56,9 +65,14 @@
         request.timeoutInterval = 10.0;
     }
     
+    NSLog(@"=== Making HTTP Request ===");
+    NSLog(@"Headers: %@", request.allHTTPHeaderFields);
+    
     NSURLSession *urlSession = [NSURLSession sharedSession];
     NSURLSessionDataTask *task = [urlSession dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+        NSLog(@"=== Received Response ===");
         if (error) {
+            NSLog(@"Network Error: %@", error);
             dispatch_async(dispatch_get_main_queue(), ^{
                 completion(nil, error);
             });
@@ -79,7 +93,9 @@
             return;
         }
         
-        // 直接返回解析后的消息数据
+        NSLog(@"Parsed Response: %@", jsonData);
+        NSLog(@"=== Transport Call End ===");
+        
         dispatch_async(dispatch_get_main_queue(), ^{
             completion(jsonData, nil);
         });

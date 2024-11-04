@@ -115,21 +115,11 @@
 + (id)receiveOne:(id)messages response:(NSString *)response error:(NSError **)error {
     NSLog(@"=== receiveOne Start ===");
     NSLog(@"Raw Response: %@", response);
+    NSLog(@"Messages config: %@", messages);
     
-    if (!response || ![response isKindOfClass:[NSString class]]) {
-        NSLog(@"Error: Response is not string");
-        if (error) {
-            *error = [NSError errorWithDomain:@"com.onekey.ble" 
-                                       code:-1 
-                                   userInfo:@{NSLocalizedDescriptionKey: @"Response is not string"}];
-        }
-        return nil;
-    }
-    
-    // Convert hex string to binary data
     NSData *data = [self hexStringToData:response];
     if (!data) {
-        NSLog(@"Error: Invalid hex string");
+        NSLog(@"Error: Failed to convert hex string to data");
         if (error) {
             *error = [NSError errorWithDomain:@"com.onekey.ble" 
                                        code:-1 
@@ -137,15 +127,12 @@
         }
         return nil;
     }
+    NSLog(@"Converted hex data length: %lu", (unsigned long)data.length);
     
-    NSLog(@"Binary data length: %lu", (unsigned long)data.length);
-    
-    // Decode protocol to get typeId and buffer
     NSError *protocolError;
     NSDictionary *protocolData = [self decodeProtocol:data error:&protocolError];
-    NSLog(@"Decoded Protocol: %@", protocolData);
     if (!protocolData) {
-        NSLog(@"Error: Protocol decode failed - %@", protocolError.localizedDescription);
+        NSLog(@"Error decoding protocol: %@", protocolError);
         if (error) {
             *error = protocolError;
         }
@@ -154,110 +141,25 @@
     
     NSInteger typeId = [protocolData[@"typeId"] integerValue];
     NSData *buffer = protocolData[@"buffer"];
+    NSLog(@"Decoded typeId: %ld, buffer length: %lu", (long)typeId, (unsigned long)buffer.length);
     
-    NSLog(@"Decoded Protocol - TypeID: %ld, Buffer length: %lu", 
-          (long)typeId, (unsigned long)buffer.length);
-    
-    // Get message type based on typeId
-    NSString *messageName = [self getMessageNameFromType:typeId messages:messages];
-    NSLog(@"Message Type: %@", messageName);
-    
-    // Parse message based on its type
-    NSMutableDictionary *message = [NSMutableDictionary dictionary];
-    if ([messageName isEqualToString:@"OnekeyFeatures"]) {
-        [self parseOnekeyFeaturesFromBuffer:buffer intoMessage:message];
-    } else if ([messageName isEqualToString:@"Features"]) {
-        [self parseFeaturesFromBuffer:buffer intoMessage:message];
+    // 使用 createMessageFromType 获取消息字典
+    NSError *createError = nil;
+    NSDictionary *messageDict = [self createMessageFromType:messages typeId:typeId error:&createError];
+    if (!messageDict) {
+        if (error) {
+            *error = createError;
+        }
+        return nil;
     }
     
-    NSLog(@"=== Parsed Message ===");
-    [message enumerateKeysAndObjectsUsingBlock:^(NSString *key, id value, BOOL *stop) {
-        NSLog(@"%@: %@", key, value);
-    }];
-    NSLog(@"=== receiveOne End ===");
+    // 获取消息名称
+    NSString *messageName = [self getMessageNameFromType:typeId messages:messages];
     
     return @{
         @"type": messageName,
-        @"message": message
+        @"message": messageDict
     };
-}
-
-+ (void)parseOnekeyFeaturesFromBuffer:(NSData *)buffer intoMessage:(NSMutableDictionary *)message {
-    NSLog(@"Parsing OnekeyFeatures buffer length: %lu", (unsigned long)buffer.length);
-    NSLog(@"Buffer hex: %@", [self dataToHexString:buffer]);
-    
-    const uint8_t *bytes = buffer.bytes;
-    NSUInteger length = buffer.length;
-    NSUInteger index = 0;
-    
-    while (index < length) {
-        uint8_t tag = bytes[index++];
-        uint32_t fieldNumber = tag >> 3;
-        uint32_t wireType = tag & 0x7;
-        
-        switch (wireType) {
-            case 0: { // Varint
-                uint64_t value = 0;
-                uint8_t byte;
-                int shift = 0;
-                do {
-                    byte = bytes[index++];
-                    value |= ((uint64_t)(byte & 0x7F) << shift);
-                    shift += 7;
-                } while (byte & 0x80);
-                
-                switch (fieldNumber) {
-                    case 1: // onekey_device_type
-                        message[@"onekey_device_type"] = @"PRO";
-                        break;
-                    // Add more cases for other numeric fields
-                }
-                break;
-            }
-            case 2: { // Length-delimited
-                uint64_t strLength = 0;
-                uint8_t byte;
-                int shift = 0;
-                do {
-                    byte = bytes[index++];
-                    strLength |= ((uint64_t)(byte & 0x7F) << shift);
-                    shift += 7;
-                } while (byte & 0x80);
-                
-                NSData *strData = [NSData dataWithBytes:&bytes[index] length:strLength];
-                NSString *strValue = [[NSString alloc] initWithData:strData encoding:NSUTF8StringEncoding];
-                index += strLength;
-                
-                switch (fieldNumber) {
-                    case 2: // onekey_board_version
-                        message[@"onekey_board_version"] = strValue;
-                        break;
-                    case 3: // onekey_boot_version
-                        message[@"onekey_boot_version"] = strValue;
-                        break;
-                    // Add more cases based on proto definition
-                }
-                break;
-            }
-        }
-    }
-    
-    NSLog(@"Parsed OnekeyFeatures message: %@", message);
-}
-
-+ (void)parseFeaturesFromBuffer:(NSData *)buffer intoMessage:(NSMutableDictionary *)message {
-    NSError *error = nil;
-    Features *features = [Features parseFromData:buffer error:&error];
-    
-    if (error) {
-        NSLog(@"Error parsing protobuf: %@", error);
-        return;
-    }
-    
-    NSDictionary *parsedFeatures = [self parseMessageToDict:features];
-    [message addEntriesFromDictionary:parsedFeatures];
-    
-    NSLog(@"Parsed Features message: %@", message);
 }
 
 + (id)checkCall:(id)jsonData error:(NSError **)error {
@@ -284,11 +186,23 @@
         return nil;
     }
     
-    // Create an empty message structure based on the type
-    NSMutableDictionary *message = [NSMutableDictionary dictionary];
-    message[@"type"] = messageName;
+    // 使用 protobuf 生成的类来创建消息
+    Class messageClass = NSClassFromString(messageName);
+    if (!messageClass) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"com.onekey.ble" 
+                                       code:-1 
+                                   userInfo:@{NSLocalizedDescriptionKey: @"Message class not found"}];
+        }
+        return nil;
+    }
     
-    return message;
+    // 创建消息实例并解析
+    GPBMessage *message = [[messageClass alloc] init];
+    NSMutableDictionary *result = [self parseMessageToDict:message];
+    result[@"type"] = messageName;
+    
+    return result;
 }
 
 + (id)decodeProtobuf:(id)messages buffer:(NSData *)buffer error:(NSError **)error {
@@ -318,51 +232,60 @@
 }
 
 + (NSString *)buildOne:(id)messages name:(NSString *)name data:(NSDictionary *)data error:(NSError **)error {
-    if (!messages || ![messages isKindOfClass:[NSDictionary class]]) {
-        if (error) {
-            *error = [NSError errorWithDomain:@"com.onekey.ble" 
-                                       code:-1 
-                                   userInfo:@{NSLocalizedDescriptionKey: @"Invalid messages object"}];
-        }
-        return nil;
-    }
+    NSLog(@"=== buildOne Start ===");
+    NSLog(@"Name: %@, Data: %@", name, data);
     
-    // Get message type ID from messages dictionary
-    NSNumber *typeId = messages[name];
-    if (!typeId) {
-        if (error) {
-            *error = [NSError errorWithDomain:@"com.onekey.ble" 
-                                       code:-1 
-                                   userInfo:@{NSLocalizedDescriptionKey: @"Unknown message type"}];
-        }
-        return nil;
-    }
+    NSInteger messageType = [self getMessageTypeForName:name messages:messages];
     
-    // Create protocol header (6 bytes)
-    uint16_t type = CFSwapInt16HostToBig([typeId unsignedShortValue]);
-    NSMutableData *header = [NSMutableData dataWithBytes:&type length:sizeof(type)];
+    NSData *buffer = [NSData data]; 
     
-    // Convert data dictionary to JSON
-    NSError *jsonError;
-    NSData *jsonData = [NSJSONSerialization dataWithJSONObject:data options:0 error:&jsonError];
-    if (jsonError) {
-        if (error) {
-            *error = jsonError;
-        }
-        return nil;
-    }
+    NSMutableData *result = [NSMutableData data];
     
-    // Add length to header (4 bytes)
-    uint32_t length = CFSwapInt32HostToBig((uint32_t)jsonData.length);
-    [header appendBytes:&length length:sizeof(length)];
+    uint16_t type = CFSwapInt16HostToBig((uint16_t)messageType);
+    [result appendBytes:&type length:sizeof(type)];
     
-    // Combine header and data
-    NSMutableData *message = [header mutableCopy];
-    [message appendData:jsonData];
+    uint32_t length = CFSwapInt32HostToBig((uint32_t)buffer.length);
+    [result appendBytes:&length length:sizeof(length)];
     
-    // Convert to hex string
-    return [self dataToHexString:message];
+    [result appendData:buffer];
+    
+    NSString *hexString = [self dataToHexString:result];
+    
+    NSLog(@"=== buildOne Result ===");
+    NSLog(@"Message Type: %ld", (long)messageType);
+    NSLog(@"Buffer Length: %lu", (unsigned long)buffer.length);
+    NSLog(@"Total Length: %lu", (unsigned long)result.length);
+    NSLog(@"Hex String: %@", hexString);
+    
+    return hexString;
 }
+
+
++ (NSInteger)getMessageTypeForName:(NSString *)name messages:(NSDictionary *)messages {
+    // 使用 GPB 生成的类来获取消息类型
+    Class messageClass = nil;
+    
+    if ([name isEqualToString:@"OnekeyGetFeatures"]) {
+        messageClass = [OnekeyGetFeatures class];
+    } else if ([name isEqualToString:@"GetFeatures"]) {
+        messageClass = [GetFeatures class];
+    }
+    
+    if (!messageClass) {
+        return -1;
+    }
+    
+    // 获取消息描述符
+    GPBDescriptor *descriptor = [messageClass descriptor];
+    if (!descriptor) {
+        return -1;
+    }
+    
+    // 获取消息类型 ID
+    int32_t messageType = descriptor.wireFormat;
+    return messageType;
+}
+
 
 + (id)transformValue:(id)value field:(GPBFieldDescriptor *)field {
     if (!value) {

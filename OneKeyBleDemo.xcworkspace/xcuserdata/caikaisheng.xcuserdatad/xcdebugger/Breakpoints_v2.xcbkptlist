@@ -288,7 +288,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "257"
             endingLineNumber = "257"
-            landmarkName = "+parseFeaturesFromBuffer:intoMessage:"
+            landmarkName = "+parseOnekeyFeaturesFromBuffer:intoMessage:"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
@@ -304,7 +304,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "258"
             endingLineNumber = "258"
-            landmarkName = "+parseFeaturesFromBuffer:intoMessage:"
+            landmarkName = "+parseOnekeyFeaturesFromBuffer:intoMessage:"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
@@ -320,7 +320,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "259"
             endingLineNumber = "259"
-            landmarkName = "+parseFeaturesFromBuffer:intoMessage:"
+            landmarkName = "+parseOnekeyFeaturesFromBuffer:intoMessage:"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
@@ -336,8 +336,8 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "260"
             endingLineNumber = "260"
-            landmarkName = "+parseFeaturesFromBuffer:intoMessage:"
-            landmarkType = "7">
+            landmarkName = "OKProtobufHelper"
+            landmarkType = "3">
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
@@ -368,8 +368,8 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "262"
             endingLineNumber = "262"
-            landmarkName = "OKProtobufHelper"
-            landmarkType = "3">
+            landmarkName = "+parseFeaturesFromBuffer:intoMessage:"
+            landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
@@ -384,7 +384,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "286"
             endingLineNumber = "286"
-            landmarkName = "+createMessageFromType:typeId:error:"
+            landmarkName = "+checkCall:error:"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
