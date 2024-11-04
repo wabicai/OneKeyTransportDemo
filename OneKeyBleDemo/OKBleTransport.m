@@ -20,56 +20,57 @@
     return self;
 }
 
-- (void)call:(NSString *)session name:(NSString *)name data:(NSDictionary *)data completion:(void (^)(id result, NSError *error))completion {
-    if (!self.configured || !self.messages) {
-        NSError *error = [NSError errorWithDomain:@"com.onekey.ble"
-                                           code:-1
-                                       userInfo:@{NSLocalizedDescriptionKey: @"Transport not configured"}];
-        if (completion) {
-            completion(nil, error);
-        }
+- (void)call:(NSString *)session name:(NSString *)name data:(NSDictionary *)data completion:(void (^)(id _Nullable, NSError * _Nullable))completion {
+    NSLog(@"=== Transport Call Start ===");
+    NSLog(@"Session: %@, Name: %@, Data: %@", session, name, data);
+    
+    if (!self.messages) {
+        NSLog(@"Error: Transport not configured");
+        completion(nil, [NSError errorWithDomain:@"OKBleTransport" code:-1 userInfo:@{NSLocalizedDescriptionKey: @"Transport not configured"}]);
         return;
     }
     
-    NSString *urlString = [NSString stringWithFormat:@"%@/call/%@", self.baseUrl, session];
-    NSURL *url = [NSURL URLWithString:urlString];
+    // Build request data
+    NSError *error = nil;
     
-    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
+    if (error) {
+        NSLog(@"Error building request: %@", error);
+        completion(nil, error);
+        return;
+    }
+    
+    
+    // Create URL request
+    NSString *urlString = [NSString stringWithFormat:@"%@/call/%@", self.baseUrl, session];
+    NSMutableURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:[NSURL URLWithString:urlString]];
     request.HTTPMethod = @"POST";
     request.HTTPBody = [@"000000000000" dataUsingEncoding:NSUTF8StringEncoding];
-    
-    // 设置请求头
+
+        // 设置请求头
     [request setValue:@"text/plain" forHTTPHeaderField:@"Content-Type"];
     [request setValue:@"application/json, text/plain, */*" forHTTPHeaderField:@"Accept"];
     [request setValue:@"https://jssdk.onekey.so" forHTTPHeaderField:@"Origin"];
-    
-    // 修改日志输出格式
-    NSMutableString *logString = [NSMutableString stringWithFormat:@"curl '%@' \\\n", urlString];
-    [request.allHTTPHeaderFields enumerateKeysAndObjectsUsingBlock:^(NSString *key, NSString *value, BOOL *stop) {
-        [logString appendFormat:@"  -H '%@: %@' \\\n", key, value];
-    }];
-    
-    NSString *bodyString = [[NSString alloc] initWithData:request.HTTPBody encoding:NSUTF8StringEncoding];
-    [logString appendFormat:@"  --data-raw '%@'", bodyString];
-    NSLog(@"%@", logString);
+
+    // Set timeout for Initialize command
+    if ([name isEqualToString:@"Initialize"]) {
+        request.timeoutInterval = 10.0;
+    }
     
     NSURLSession *urlSession = [NSURLSession sharedSession];
-    NSURLSessionDataTask *task = [urlSession dataTaskWithRequest:request completionHandler:^(NSData *responseData, NSURLResponse *response, NSError *error) {
+    NSURLSessionDataTask *task = [urlSession dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
         if (error) {
-            NSLog(@"Error: %@", error.localizedDescription);
             dispatch_async(dispatch_get_main_queue(), ^{
                 completion(nil, error);
             });
             return;
         }
         
-        // 直接输出响应内容
-        NSString *responseString = [[NSString alloc] initWithData:responseData encoding:NSUTF8StringEncoding];
+        NSString *responseString = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
         NSLog(@"Raw Response: %@", responseString);
         
-        // 使用 OKProtobufHelper 处理响应数据
-        NSError *protoError;
-        id jsonData = [OKProtobufHelper receiveOne:self.messages response:responseString error:&protoError];
+        // Parse protobuf message
+        NSError *protoError = nil;
+        NSDictionary *jsonData = [OKProtobufHelper receiveOne:self.messages response:responseString error:&protoError];
         
         if (protoError) {
             dispatch_async(dispatch_get_main_queue(), ^{
@@ -78,19 +79,9 @@
             return;
         }
         
-        // 检查响应结果
-        id result = [OKProtobufHelper checkCall:jsonData error:&protoError];
-        
-        if (protoError) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                completion(nil, protoError);
-            });
-            return;
-        }
-        
-        // 返回处理后的结果
+        // 直接返回解析后的消息数据
         dispatch_async(dispatch_get_main_queue(), ^{
-            completion(result, nil);
+            completion(jsonData, nil);
         });
     }];
     

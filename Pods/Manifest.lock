@@ -1,16 +1,16 @@
 PODS:
-  - Protobuf (3.21.12)
+  - Protobuf (3.23.4)
 
 DEPENDENCIES:
-  - Protobuf (~> 3.21.12)
+  - Protobuf (= 3.23.4)
 
 SPEC REPOS:
   trunk:
     - Protobuf
 
 SPEC CHECKSUMS:
-  Protobuf: 120350fc38646e2dedc26f49ecba778184ea1de2
+  Protobuf: c6bc59bbab3d38a71c67f62d7cb7ca8f8ea4eca1
 
-PODFILE CHECKSUM: 8eca916434dfbea760dd77ddb9ef20b7448cfc2e
+PODFILE CHECKSUM: 71c1a3a35af77ad5b7444960882d91a8004b76e9
 
 COCOAPODS: 1.15.2
