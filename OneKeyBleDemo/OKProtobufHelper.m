@@ -3,24 +3,6 @@
 @implementation OKProtobufHelper
 
 
-+ (NSData *)encodeProtocolWithData:(NSData *)data messageType:(NSInteger)messageType {
-    // 创建一个 ByteBuffer 来构建协议数据
-    NSMutableData *buffer = [NSMutableData data];
-    
-    // 写入消息类型 (2字节)
-    uint16_t type = CFSwapInt16HostToBig((uint16_t)messageType);
-    [buffer appendBytes:&type length:sizeof(type)];
-    
-    // 写入数据长度 (4字节)
-    uint32_t length = CFSwapInt32HostToBig((uint32_t)data.length);
-    [buffer appendBytes:&length length:sizeof(length)];
-    
-    // 写入数据
-    [buffer appendData:data];
-    
-    return buffer;
-}
-
 + (NSDictionary *)decodeProtocol:(NSData *)data error:(NSError **)error {
     if (!data || data.length < 6) {
         if (error) {
@@ -79,28 +61,6 @@
     
     return data;
 }
-
-+ (NSInteger)getMessageTypeFromName:(NSString *)name messages:(id)messages {
-    // Get message type mapping from messages definition
-    if ([name isEqualToString:@"Features"]) {
-        return 1;  // Features message type
-    } else if ([name isEqualToString:@"OnekeyFeatures"]) {
-        return 10026; // OnekeyFeatures message type from messages.proto
-    }
-    // Add more message type mappings as needed
-    return 0;
-}
-
-+ (NSData *)encodeProtobufWithMessage:(NSString *)name data:(NSDictionary *)data messages:(id)messages {
-    // 临时实现，将数据转换为 JSON 格式
-    NSError *error;
-    NSData *jsonData = [NSJSONSerialization dataWithJSONObject:data ?: @{} options:0 error:&error];
-    if (error) {
-        return nil;
-    }
-    return jsonData;
-}
-
 + (NSString *)getMessageNameFromType:(NSInteger)typeId messages:(id)messages {
     switch (typeId) {
         case 1:
@@ -110,40 +70,6 @@
         default:
             return @"Unknown";
     }
-}
-
-+ (NSDictionary *)decodeProtobufWithBuffer:(NSData *)buffer messageName:(NSString *)messageName messages:(id)messages {
-    if (!buffer || !messageName || ![messageName isKindOfClass:[NSString class]]) {
-        return @{};
-    }
-    
-    // Here we should implement proper protobuf decoding based on the message definition
-    // For now, we'll use JSON as a temporary solution
-    NSError *error;
-    NSDictionary *json = [NSJSONSerialization JSONObjectWithData:buffer options:0 error:&error];
-    if (error) {
-        NSLog(@"Protobuf decoding error: %@", error);
-        return @{};
-    }
-    
-    // Add message-specific field processing
-    if ([messageName isEqualToString:@"Features"] || [messageName isEqualToString:@"OnekeyFeatures"]) {
-        NSMutableDictionary *processedMessage = [NSMutableDictionary dictionaryWithDictionary:json];
-        
-        // Convert any binary/hex fields to proper format
-        for (NSString *key in json) {
-            if ([key hasSuffix:@"_hash"] || [key isEqualToString:@"session_id"]) {
-                NSString *hexValue = json[key];
-                if ([hexValue isKindOfClass:[NSString class]]) {
-                    processedMessage[key] = [self hexStringToData:hexValue];
-                }
-            }
-        }
-        
-        return processedMessage;
-    }
-    
-    return json ?: @{};
 }
 
 + (NSString *)dataToHexString:(NSData *)data {

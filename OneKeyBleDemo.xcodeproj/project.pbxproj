@@ -21,8 +21,6 @@
 		36EE672F2CD4D6C300B7E736 /* OneKeyBleDemoUITestsLaunchTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 36EE672E2CD4D6C300B7E736 /* OneKeyBleDemoUITestsLaunchTests.m */; };
 		36EE67582CD4E66100B7E736 /* OKBleManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 36EE674B2CD4E66100B7E736 /* OKBleManager.m */; };
 		36EE67592CD4E66100B7E736 /* OKBleDefines.m in Sources */ = {isa = PBXBuildFile; fileRef = 36EE67502CD4E66100B7E736 /* OKBleDefines.m */; };
-		36EE675A2CD4E66100B7E736 /* OKProtocolBuilder.m in Sources */ = {isa = PBXBuildFile; fileRef = 36EE67522CD4E66100B7E736 /* OKProtocolBuilder.m */; };
-		36EE675B2CD4E66100B7E736 /* OKProtocolParser.m in Sources */ = {isa = PBXBuildFile; fileRef = 36EE67542CD4E66100B7E736 /* OKProtocolParser.m */; };
 		36EE675C2CD4E66100B7E736 /* OKBleTransport.m in Sources */ = {isa = PBXBuildFile; fileRef = 36EE67552CD4E66100B7E736 /* OKBleTransport.m */; };
 		36EE675D2CD4E66100B7E736 /* OKProtobufHelper.m in Sources */ = {isa = PBXBuildFile; fileRef = 36EE67572CD4E66100B7E736 /* OKProtobufHelper.m */; };
 		82DA244F6ACFE115FC3323FA /* Pods_OneKeyBleDemo.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E36658EFCAF73871876D5E4 /* Pods_OneKeyBleDemo.framework */; };
@@ -72,9 +70,6 @@
 		36EE674F2CD4E66100B7E736 /* OKProtobufHelper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = OKProtobufHelper.h; path = OneKeyBleDemo/OKProtobufHelper.h; sourceTree = "<group>"; };
 		36EE67502CD4E66100B7E736 /* OKBleDefines.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = OKBleDefines.m; path = OneKeyBleDemo/OKBleDefines.m; sourceTree = "<group>"; };
 		36EE67512CD4E66100B7E736 /* OKProtocolDefines.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = OKProtocolDefines.h; path = OneKeyBleDemo/OKProtocolDefines.h; sourceTree = "<group>"; };
-		36EE67522CD4E66100B7E736 /* OKProtocolBuilder.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = OKProtocolBuilder.m; path = OneKeyBleDemo/OKProtocolBuilder.m; sourceTree = "<group>"; };
-		36EE67532CD4E66100B7E736 /* OKProtocolBuilder.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = OKProtocolBuilder.h; path = OneKeyBleDemo/OKProtocolBuilder.h; sourceTree = "<group>"; };
-		36EE67542CD4E66100B7E736 /* OKProtocolParser.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = OKProtocolParser.m; path = OneKeyBleDemo/OKProtocolParser.m; sourceTree = "<group>"; };
 		36EE67552CD4E66100B7E736 /* OKBleTransport.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = OKBleTransport.m; path = OneKeyBleDemo/OKBleTransport.m; sourceTree = "<group>"; };
 		36EE67562CD4E66100B7E736 /* OKProtocolParser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = OKProtocolParser.h; path = OneKeyBleDemo/OKProtocolParser.h; sourceTree = "<group>"; };
 		36EE67572CD4E66100B7E736 /* OKProtobufHelper.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = OKProtobufHelper.m; path = OneKeyBleDemo/OKProtobufHelper.m; sourceTree = "<group>"; };
@@ -126,11 +121,7 @@
 				36EE67552CD4E66100B7E736 /* OKBleTransport.m */,
 				36EE674F2CD4E66100B7E736 /* OKProtobufHelper.h */,
 				36EE67572CD4E66100B7E736 /* OKProtobufHelper.m */,
-				36EE67532CD4E66100B7E736 /* OKProtocolBuilder.h */,
-				36EE67522CD4E66100B7E736 /* OKProtocolBuilder.m */,
 				36EE67512CD4E66100B7E736 /* OKProtocolDefines.h */,
-				36EE67562CD4E66100B7E736 /* OKProtocolParser.h */,
-				36EE67542CD4E66100B7E736 /* OKProtocolParser.m */,
 				36EE67052CD4D6C100B7E736 /* OneKeyBleDemo */,
 				36EE67212CD4D6C300B7E736 /* OneKeyBleDemoTests */,
 				36EE672B2CD4D6C300B7E736 /* OneKeyBleDemoUITests */,
@@ -411,16 +402,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				36EE67592CD4E66100B7E736 /* OKBleDefines.m in Sources */,
-				36EE675A2CD4E66100B7E736 /* OKProtocolBuilder.m in Sources */,
 				36EE675D2CD4E66100B7E736 /* OKProtobufHelper.m in Sources */,
 				36EE670E2CD4D6C100B7E736 /* ViewController.m in Sources */,
 				36EE67082CD4D6C100B7E736 /* AppDelegate.m in Sources */,
 				36EE67582CD4E66100B7E736 /* OKBleManager.m in Sources */,
 				36EE67192CD4D6C300B7E736 /* main.m in Sources */,
 				36EE675C2CD4E66100B7E736 /* OKBleTransport.m in Sources */,
-				36EE675B2CD4E66100B7E736 /* OKProtocolParser.m in Sources */,
 				36EE670B2CD4D6C100B7E736 /* SceneDelegate.m in Sources */,
-			);
+							);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		36EE671A2CD4D6C300B7E736 /* Sources */ = {

@@ -41,19 +41,7 @@
     // 设置请求头
     [request setValue:@"text/plain" forHTTPHeaderField:@"Content-Type"];
     [request setValue:@"application/json, text/plain, */*" forHTTPHeaderField:@"Accept"];
-    [request setValue:@"zh-CN,zh;q=0.9" forHTTPHeaderField:@"Accept-Language"];
-    [request setValue:@"no-cache" forHTTPHeaderField:@"Cache-Control"];
-    [request setValue:@"keep-alive" forHTTPHeaderField:@"Connection"];
-    [request setValue:@"1" forHTTPHeaderField:@"DNT"];
     [request setValue:@"https://jssdk.onekey.so" forHTTPHeaderField:@"Origin"];
-    [request setValue:@"no-cache" forHTTPHeaderField:@"Pragma"];
-    [request setValue:@"empty" forHTTPHeaderField:@"Sec-Fetch-Dest"];
-    [request setValue:@"cors" forHTTPHeaderField:@"Sec-Fetch-Mode"];
-    [request setValue:@"cross-site" forHTTPHeaderField:@"Sec-Fetch-Site"];
-    [request setValue:@"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36" forHTTPHeaderField:@"User-Agent"];
-    [request setValue:@"\"Not?A_Brand\";v=\"99\", \"Chromium\";v=\"130\"" forHTTPHeaderField:@"sec-ch-ua"];
-    [request setValue:@"?0" forHTTPHeaderField:@"sec-ch-ua-mobile"];
-    [request setValue:@"\"macOS\"" forHTTPHeaderField:@"sec-ch-ua-platform"];
     
     // 修改日志输出格式
     NSMutableString *logString = [NSMutableString stringWithFormat:@"curl '%@' \\\n", urlString];
