@@ -80,8 +80,8 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "115"
             endingLineNumber = "115"
-            landmarkName = "+receiveOne:response:error:"
-            landmarkType = "7">
+            landmarkName = "OKProtobufHelper"
+            landmarkType = "3">
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
@@ -288,7 +288,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "257"
             endingLineNumber = "257"
-            landmarkName = "+parseOnekeyFeaturesFromBuffer:intoMessage:"
+            landmarkName = "+buildOne:name:data:error:"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
@@ -304,7 +304,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "258"
             endingLineNumber = "258"
-            landmarkName = "+parseOnekeyFeaturesFromBuffer:intoMessage:"
+            landmarkName = "+buildOne:name:data:error:"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
@@ -320,7 +320,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "259"
             endingLineNumber = "259"
-            landmarkName = "+parseOnekeyFeaturesFromBuffer:intoMessage:"
+            landmarkName = "+buildOne:name:data:error:"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
@@ -336,8 +336,8 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "260"
             endingLineNumber = "260"
-            landmarkName = "OKProtobufHelper"
-            landmarkType = "3">
+            landmarkName = "+buildOne:name:data:error:"
+            landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
@@ -352,7 +352,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "261"
             endingLineNumber = "261"
-            landmarkName = "+parseFeaturesFromBuffer:intoMessage:"
+            landmarkName = "+buildOne:name:data:error:"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
@@ -368,7 +368,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "262"
             endingLineNumber = "262"
-            landmarkName = "+parseFeaturesFromBuffer:intoMessage:"
+            landmarkName = "+buildOne:name:data:error:"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
@@ -384,7 +384,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "286"
             endingLineNumber = "286"
-            landmarkName = "+checkCall:error:"
+            landmarkName = "+buildOne:name:data:error:"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>

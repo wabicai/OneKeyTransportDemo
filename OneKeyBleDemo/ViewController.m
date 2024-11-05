@@ -20,10 +20,23 @@
     
     // 配置 transport
     self.bleTransport.configured = YES;
+    /**
+     * from messages.proto
+     * lint 81
+     * enum MessageType { 
+     * ...
+     * MessageType_Initialize = 0 [(bitcoin_only) = true, (wire_in) = true, (wire_tiny) = true];
+     * ...
+     * }
+     */
+    
     self.bleTransport.messages = @{
+        @"Initialize": @0,
+        @"Success": @2,
+        @"Features": @17,
         @"OnekeyGetFeatures": @10025,
         @"OnekeyFeatures": @10026,
-        @"Features": @17
+        @"LockDevice": @24,
     };
     
     [self setupUI];
@@ -44,8 +57,22 @@
     // 添加按钮到视图
     [self.view addSubview:button];
     
-    // 创建 ScrollView
-    CGFloat scrollViewY = CGRectGetMaxY(button.frame) + 20;
+    // 创建 Lock Device 按钮
+    UIButton *lockDeviceButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    [lockDeviceButton setTitle:@"Lock Device" forState:UIControlStateNormal];
+    lockDeviceButton.frame = CGRectMake(20, CGRectGetMaxY(button.frame) + 20, self.view.frame.size.width - 40, 44);
+    [lockDeviceButton addTarget:self action:@selector(lockDeviceButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
+    
+    // 设置锁按钮样式
+    lockDeviceButton.backgroundColor = [UIColor systemRedColor];
+    [lockDeviceButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+    lockDeviceButton.layer.cornerRadius = 8;
+    
+    // 添加锁按钮到视图
+    [self.view addSubview:lockDeviceButton];
+    
+    // 调整 ScrollView 位置
+    CGFloat scrollViewY = CGRectGetMaxY(lockDeviceButton.frame) + 20;
     CGFloat scrollViewHeight = self.view.frame.size.height - scrollViewY - 20;
     self.scrollView = [[UIScrollView alloc] initWithFrame:CGRectMake(20, scrollViewY, self.view.frame.size.width - 40, scrollViewHeight)];
     self.scrollView.backgroundColor = [UIColor systemGray6Color];
@@ -129,14 +156,13 @@
         
         [self appendLog:@"Device acquired successfully"];
         
-        // Step 3: Call GetFeatures
-        [self appendLog:@"\nStep 3: Calling GetFeatures..."];
+        // Step 3: Call Initialize
+        [self appendLog:@"\nStep 3: Calling Initialize..."];
         
-        // 将 session 转换为数字并加1
         NSInteger sessionValue = [session integerValue];
         NSString *nextSession = [NSString stringWithFormat:@"%ld", (long)(sessionValue + 1)];
         
-        [self.bleTransport call:nextSession name:@"OnekeyGetFeatures" data:@{} completion:^(id result, NSError *error) {
+        [self.bleTransport call:nextSession name:@"Initialize" data:@{} completion:^(id result, NSError *error) {
             if (error) {
                 [self appendLog:[NSString stringWithFormat:@"Error: %@", error.localizedDescription]];
                 [self releaseSession:nextSession];
@@ -162,8 +188,6 @@
 }
 
 - (void)releaseSession:(NSString *)session {
-    [self appendLog:@"\nStep 4: Releasing session..."];
-    
     [self.bleTransport releaseSession:session completion:^(NSError *error) {
         if (error) {
             [self appendLog:[NSString stringWithFormat:@"Error: %@", error.localizedDescription]];
@@ -249,6 +273,110 @@
         // 滚动到底部
         [self.scrollView setContentOffset:CGPointMake(0, MAX(0, newSize.height - self.scrollView.frame.size.height)) animated:YES];
     });
+}
+
+- (void)lockDeviceButtonTapped:(UIButton *)sender {
+    [self appendLog:@"=== LockDevice Request Start ==="];
+    
+    // Step 1: Enumerate devices
+    [self appendLog:@"Step 1: Enumerating devices..."];
+    
+    [self.bleTransport enumerateDevicesWithCompletion:^(NSArray *devices, NSError *error) {
+        if (error) {
+            [self appendLog:[NSString stringWithFormat:@"Error: %@", error.localizedDescription]];
+            return;
+        }
+        
+        if (devices.count == 0) {
+            [self appendLog:@"No devices found"];
+            return;
+        }
+        
+        [self appendLog:[NSString stringWithFormat:@"Found %lu device(s)", (unsigned long)devices.count]];
+        
+        // Get first device
+        NSDictionary *device = devices.firstObject;
+        NSString *path = device[@"path"];
+        NSString *session = device[@"session"];
+        
+        // If no session, try to acquire one
+        if (!session || [session isEqual:[NSNull null]]) {
+            [self appendLog:@"No session found, trying to acquire one..."];
+            [self.bleTransport acquireDevice:path session:@"null" completion:^(NSError *error) {
+                if (error) {
+                    [self appendLog:@"Failed to acquire initial session"];
+                    return;
+                }
+                
+                [self.bleTransport enumerateDevicesWithCompletion:^(NSArray *newDevices, NSError *error) {
+                    if (error || newDevices.count == 0) {
+                        [self appendLog:@"Failed to get device with session"];
+                        return;
+                    }
+                    
+                    NSDictionary *newDevice = [self findDeviceWithPath:path inDevices:newDevices];
+                    if (!newDevice) {
+                        [self appendLog:@"Device not found after acquiring session"];
+                        return;
+                    }
+                    
+                    NSString *newSession = newDevice[@"session"];
+                    [self lockDeviceWithPath:path session:newSession];
+                }];
+            }];
+        } else {
+            [self lockDeviceWithPath:path session:session];
+        }
+    }];
+}
+
+- (void)lockDeviceWithPath:(NSString *)path session:(NSString *)session {
+    // Step 2: Acquire device
+    [self appendLog:@"\nStep 2: Acquiring device..."];
+    
+    [self.bleTransport acquireDevice:path session:session completion:^(NSError *error) {
+        if (error) {
+            [self appendLog:[NSString stringWithFormat:@"Error: %@", error.localizedDescription]];
+            return;
+        }
+        
+        [self appendLog:@"Device acquired successfully"];
+        
+        // Step 3: Call Initialize
+        [self appendLog:@"\nStep 3: Calling Initialize..."];
+        
+        NSInteger sessionValue = [session integerValue];
+        NSString *nextSession = [NSString stringWithFormat:@"%ld", (long)(sessionValue + 1)];
+        
+        [self.bleTransport call:nextSession name:@"Initialize" data:@{} completion:^(id result, NSError *error) {
+            if (error) {
+                [self appendLog:[NSString stringWithFormat:@"Error: %@", error.localizedDescription]];
+                [self releaseSession:nextSession];
+                return;
+            }
+            
+            if ([result isKindOfClass:[NSDictionary class]]) {
+                [self handleFeatureResponse:result];
+            }
+            
+            // Step 4: Call LockDevice
+            [self appendLog:@"\nStep 4: Calling LockDevice..."];
+            
+            [self.bleTransport call:nextSession name:@"LockDevice" data:@{} completion:^(id lockResult, NSError *lockError) {
+                if (lockError) {
+                    [self appendLog:[NSString stringWithFormat:@"Error: %@", lockError.localizedDescription]];
+                    [self releaseSession:nextSession];
+                    return;
+                }
+                
+                [self appendLog:@"Device locked successfully"];
+                
+                // Step 5: Release session
+                [self appendLog:@"\nStep 5: Releasing session..."];
+                [self releaseSession:nextSession];
+            }];
+        }];
+    }];
 }
 
 @end

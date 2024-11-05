@@ -1,4 +1,5 @@
 #import "OKProtobufHelper.h"
+#import "../MessagesCommon.pbobjc.h"
 #import "../MessagesManagement.pbobjc.h"
 
 @implementation OKProtobufHelper
@@ -149,6 +150,7 @@
     
     // 使用 protobuf 生成的类来创建消息
     Class messageClass = NSClassFromString(messageName);
+
     if (!messageClass) {
         NSLog(@"Error: Message class not found for name: %@", messageName);
         if (error) {
@@ -229,13 +231,46 @@
     NSLog(@"=== buildOne Start ===");
     NSLog(@"Name: %@, Data: %@", name, data);
     
-    NSInteger messageType = [self getMessageTypeForName:name messages:messages];
+    // Create protobuf message instance
+    Class messageClass = NSClassFromString(name);
+    if (!messageClass) {
+        NSLog(@"Error: Message class not found for name: %@", name);
+        if (error) {
+            *error = [NSError errorWithDomain:@"com.onekey.ble" 
+                                       code:-1 
+                                   userInfo:@{NSLocalizedDescriptionKey: @"Message class not found"}];
+        }
+        return nil;
+    }
     
-    NSData *buffer = [NSData data]; 
+    // Create message instance
+    GPBMessage *message = [[messageClass alloc] init];
+    
+    // Serialize the message to data
+    NSError *serializeError = nil;
+    NSData *buffer = [message data];
+    if (serializeError) {
+        if (error) {
+            *error = serializeError;
+        }
+        return nil;
+    }
     
     NSMutableData *result = [NSMutableData data];
     
-    uint16_t type = CFSwapInt16HostToBig((uint16_t)messageType);
+    // Get message type from messages dictionary
+    NSNumber *typeNum = messages[name];
+    if (!typeNum) {
+        NSLog(@"Error: Message type not found for name: %@", name);
+        if (error) {
+            *error = [NSError errorWithDomain:@"com.onekey.ble" 
+                                       code:-1 
+                                   userInfo:@{NSLocalizedDescriptionKey: @"Message type not found"}];
+        }
+        return nil;
+    }
+    
+    uint16_t type = CFSwapInt16HostToBig((uint16_t)[typeNum integerValue]);
     [result appendBytes:&type length:sizeof(type)];
     
     uint32_t length = CFSwapInt32HostToBig((uint32_t)buffer.length);
@@ -246,7 +281,7 @@
     NSString *hexString = [self dataToHexString:result];
     
     NSLog(@"=== buildOne Result ===");
-    NSLog(@"Message Type: %ld", (long)messageType);
+    NSLog(@"Message Type: %@", typeNum);
     NSLog(@"Buffer Length: %lu", (unsigned long)buffer.length);
     NSLog(@"Total Length: %lu", (unsigned long)result.length);
     NSLog(@"Hex String: %@", hexString);

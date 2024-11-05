@@ -10,6 +10,7 @@
 		1C59F2AC8A8556C5CA746249 /* Pods_OneKeyBleDemo_OneKeyBleDemoUITests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A30AB1FE21DE8564C0B98193 /* Pods_OneKeyBleDemo_OneKeyBleDemoUITests.framework */; };
 		1F337276CAFDAC1A610E55A0 /* Pods_OneKeyBleDemoTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CEE4A4A6393BF19BF513A1CC /* Pods_OneKeyBleDemoTests.framework */; };
 		364EF8192CD8D32800839784 /* MessagesManagement.pbobjc.m in Sources */ = {isa = PBXBuildFile; fileRef = 364EF8172CD8D32800839784 /* MessagesManagement.pbobjc.m */; };
+		364EF81C2CD9C76C00839784 /* MessagesCommon.pbobjc.m in Sources */ = {isa = PBXBuildFile; fileRef = 364EF81B2CD9C44200839784 /* MessagesCommon.pbobjc.m */; };
 		36EE67082CD4D6C100B7E736 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 36EE67072CD4D6C100B7E736 /* AppDelegate.m */; };
 		36EE670B2CD4D6C100B7E736 /* SceneDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 36EE670A2CD4D6C100B7E736 /* SceneDelegate.m */; };
 		36EE670E2CD4D6C100B7E736 /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 36EE670D2CD4D6C100B7E736 /* ViewController.m */; };
@@ -47,6 +48,8 @@
 		159A666F6AD02280B40842CB /* Pods-OneKeyBleDemoTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-OneKeyBleDemoTests.debug.xcconfig"; path = "Target Support Files/Pods-OneKeyBleDemoTests/Pods-OneKeyBleDemoTests.debug.xcconfig"; sourceTree = "<group>"; };
 		364EF8172CD8D32800839784 /* MessagesManagement.pbobjc.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = MessagesManagement.pbobjc.m; sourceTree = "<group>"; };
 		364EF8182CD8D32800839784 /* MessagesManagement.pbobjc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MessagesManagement.pbobjc.h; sourceTree = "<group>"; };
+		364EF81A2CD9C44200839784 /* MessagesCommon.pbobjc.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MessagesCommon.pbobjc.h; sourceTree = "<group>"; };
+		364EF81B2CD9C44200839784 /* MessagesCommon.pbobjc.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = MessagesCommon.pbobjc.m; sourceTree = "<group>"; };
 		36EE67032CD4D6C100B7E736 /* OneKeyBleDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OneKeyBleDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		36EE67062CD4D6C100B7E736 /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
 		36EE67072CD4D6C100B7E736 /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
@@ -109,6 +112,8 @@
 		36EE66FA2CD4D6C100B7E736 = {
 			isa = PBXGroup;
 			children = (
+				364EF81A2CD9C44200839784 /* MessagesCommon.pbobjc.h */,
+				364EF81B2CD9C44200839784 /* MessagesCommon.pbobjc.m */,
 				364EF8182CD8D32800839784 /* MessagesManagement.pbobjc.h */,
 				364EF8172CD8D32800839784 /* MessagesManagement.pbobjc.m */,
 				36EE674D2CD4E66100B7E736 /* OKBleTransport.h */,
@@ -395,10 +400,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				36EE67592CD4E66100B7E736 /* efines.m in Sources */,
+				364EF81C2CD9C76C00839784 /* MessagesCommon.pbobjc.m in Sources */,
+				364EF8192CD8D32800839784 /* MessagesManagement.pbobjc.m in Sources */,
 				36EE675D2CD4E66100B7E736 /* OKProtobufHelper.m in Sources */,
 				36EE670E2CD4D6C100B7E736 /* ViewController.m in Sources */,
-				364EF8192CD8D32800839784 /* MessagesManagement.pbobjc.m in Sources */,
 				36EE67082CD4D6C100B7E736 /* AppDelegate.m in Sources */,
 				36EE67192CD4D6C300B7E736 /* main.m in Sources */,
 				36EE675C2CD4E66100B7E736 /* OKBleTransport.m in Sources */,
