@@ -56,8 +56,7 @@
     
     // Extract payload data
     NSData *buffer = [data subdataWithRange:NSMakeRange(6, length)];
-    NSLog(@"Extracted buffer length: %lu", (unsigned long)buffer.length);
-    NSLog(@"Buffer content (hex): %@", [self dataToHexString:buffer]);
+    NSLog(@"Buffer content: %@", [self dataToHexString:buffer]);
     NSLog(@"=== decodeProtocol End ===");
     
     return @{
@@ -128,7 +127,6 @@
         }
         return nil;
     }
-    NSLog(@"Converted hex data length: %lu", (unsigned long)data.length);
     
     NSError *protocolError;
     NSDictionary *protocolData = [self decodeProtocol:data error:&protocolError];
@@ -142,8 +140,6 @@
     
     NSInteger typeId = [protocolData[@"typeId"] integerValue];
     NSData *buffer = protocolData[@"buffer"];
-    NSLog(@"Decoded typeId: %ld, buffer length: %lu", (long)typeId, (unsigned long)buffer.length);
-    
     // 获取消息名称
     NSString *messageName = [self getMessageNameFromType:typeId messages:messages];
     NSLog(@"Message name: %@", messageName);
@@ -174,8 +170,6 @@
     // 解析消息到字典
     NSMutableDictionary *messageDict = [self parseMessageToDict:message];
     messageDict[@"type"] = messageName;
-    
-    NSLog(@"Parsed message dict: %@", messageDict);
     
     return @{
         @"type": messageName,
@@ -313,8 +307,6 @@
 
 
 + (id)transformValue:(id)value field:(GPBFieldDescriptor *)field {
-    NSLog(@"Transform value: %@ for field type: %d", value, field.dataType);
-    
     if (!value) {
         return [NSNull null];
     }
@@ -367,15 +359,10 @@
     NSArray *fields = descriptor.fields;
     
     NSLog(@"=== Parsing Message to Dict ===");
-    NSLog(@"Message Class: %@", NSStringFromClass([message class]));
-    
     for (GPBFieldDescriptor *field in fields) {
         NSString *fieldName = field.name;
         NSString *originalName = field.textFormatName; // 使用原始的字段名
         BOOL hasValue = NO;
-        
-        NSLog(@"Processing field - Name: %@, Original: %@, Type: %d", 
-              fieldName, originalName, field.dataType);
         
         // 检查字段是否有值
         SEL hasSelector = NSSelectorFromString([NSString stringWithFormat:@"has%@%@",
@@ -393,22 +380,16 @@
         
         // 获取值
         id value = [message valueForKey:fieldName];
-        
-        NSLog(@"Field %@ has value: %d, Value: %@", fieldName, hasValue, value);
-        
         if (hasValue || [value isKindOfClass:[NSArray class]] || value != nil) {
             id transformedValue = [self transformValue:value field:field];
             if (transformedValue) {
                 // 使用原始的字段名作为 key
                 result[originalName] = transformedValue;
-                NSLog(@"Added field %@ with value: %@", originalName, transformedValue);
             }
         }
     }
     
     NSLog(@"=== Parsing Result ===");
-    NSLog(@"Final Dictionary: %@", result);
-    
     return result;
 }
 
