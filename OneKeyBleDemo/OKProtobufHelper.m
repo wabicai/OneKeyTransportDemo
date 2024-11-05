@@ -387,6 +387,8 @@
     return result;
 }
 
+
+// Mock TypeScript: Message.create(data)
 + (void)setMessageData:(GPBMessage *)message fromDictionary:(NSDictionary *)data {
     NSLog(@"=== setMessageData Start ===");
     NSLog(@"Setting data for message: %@", [message class]);
