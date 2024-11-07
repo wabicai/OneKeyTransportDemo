@@ -19,23 +19,27 @@
         return nil;
     }
     
-    // Read header info
-    uint16_t type = 0;
+    uint16_t type;
+    uint32_t length;
+    
+    // 使用网络字节序(大端序)读取
     [data getBytes:&type range:NSMakeRange(0, sizeof(type))];
-    type = CFSwapInt16BigToHost(type);
+    type = CFSwapInt16BigToHost(type); // 转换字节序
     
-    uint32_t length = 0;
     [data getBytes:&length range:NSMakeRange(2, sizeof(length))];
-    length = CFSwapInt32BigToHost(length);
+    length = CFSwapInt32BigToHost(length); // 转换字节序
     
-    NSLog(@"📋 Header Analysis:");
-    NSLog(@"   • Type: 0x%04x (%d)", type, type);
-    NSLog(@"   • Payload Length: %u bytes", length);
-    NSLog(@"   • Total Length: %lu bytes", (unsigned long)(6 + length));
+    // 验证长度
+    if (length > data.length - 6) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"com.onekey" 
+                                       code:-1 
+                                   userInfo:@{NSLocalizedDescriptionKey: @"Invalid payload length"}];
+        }
+        return nil;
+    }
     
-    // Extract payload
     NSData *buffer = [data subdataWithRange:NSMakeRange(6, length)];
-    NSLog(@"✅ Protocol decode completed\n");
     
     return @{
         @"typeId": @(type),
