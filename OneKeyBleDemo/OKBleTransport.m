@@ -17,6 +17,9 @@ static NSString *const kNotifyCharacteristicUUID = @"00000003-0000-1000-8000-008
 @property (nonatomic, strong, readwrite) CBCharacteristic *notifyCharacteristic;
 @property (nonatomic, strong, readwrite) NSMutableArray<CBPeripheral *> *discoveredDevices;
 @property (nonatomic, strong) dispatch_queue_t deviceQueue;
+@property (nonatomic, assign) NSInteger bufferLength;
+@property (nonatomic, strong) NSMutableData *buffer;
+@property (nonatomic, copy, readwrite) void (^currentCompletion)(NSString *response, NSError *error);
 @end
 
 @implementation OKBleTransport {
@@ -67,39 +70,32 @@ static NSString *const kNotifyCharacteristicUUID = @"00000003-0000-1000-8000-008
     NSLog(@"Connected Peripheral: %@", self.connectedPeripheral);
     NSLog(@"Write Characteristic: %@", self.writeCharacteristic);
     
-    // 使用 weak self 避免循环引用
-    __weak typeof(self) weakSelf = self;
-    self.featuresCompletion = ^(NSDictionary *features, NSError *error) {
-        // 在 block 内部检查 weakSelf 是否存在
-        __strong typeof(weakSelf) strongSelf = weakSelf;
-        if (!strongSelf) {
-            if (completion) {
-                completion(features, error);
-            }
-            return;
-        }
-        
-        NSLog(@"Features completion called with features: %@, error: %@", features, error);
-        if (completion) {
-            completion(features, error);
-        }
-        // 完成后清空 completion block
-        strongSelf.featuresCompletion = nil;
-    };
+    self.featuresCompletion = completion;
     
     if (!self.connectedPeripheral) {
-        NSError *error = [NSError errorWithDomain:@"OKBleTransport" 
-                                           code:1001 
-                                       userInfo:@{NSLocalizedDescriptionKey: @"Device not connected"}];
-        self.featuresCompletion(nil, error);
+        if (completion) {
+            completion(nil, [NSError errorWithDomain:@"OKBleTransport" 
+                                             code:1001 
+                                         userInfo:@{NSLocalizedDescriptionKey: @"Device not connected"}]);
+        }
         return;
     }
     
     if (!self.writeCharacteristic) {
-        NSError *error = [NSError errorWithDomain:@"OKBleTransport" 
-                                           code:1002 
-                                       userInfo:@{NSLocalizedDescriptionKey: @"Write characteristic not available"}];
-        self.featuresCompletion(nil, error);
+        if (completion) {
+            completion(nil, [NSError errorWithDomain:@"OKBleTransport" 
+                                             code:1002 
+                                         userInfo:@{NSLocalizedDescriptionKey: @"Write characteristic not available"}]);
+        }
+        return;
+    }
+    
+    if (!self.notifyCharacteristic) {
+        if (completion) {
+            completion(nil, [NSError errorWithDomain:@"OKBleTransport" 
+                                             code:1003 
+                                         userInfo:@{NSLocalizedDescriptionKey: @"Notify characteristic not available"}]);
+        }
         return;
     }
     
@@ -109,10 +105,11 @@ static NSString *const kNotifyCharacteristicUUID = @"00000003-0000-1000-8000-008
                                                      messages:self.messages];
     
     if (!messageData) {
-        NSError *error = [NSError errorWithDomain:@"OKBleTransport" 
-                                           code:1003 
-                                       userInfo:@{NSLocalizedDescriptionKey: @"Failed to build message buffer"}];
-        self.featuresCompletion(nil, error);
+        if (completion) {
+            completion(nil, [NSError errorWithDomain:@"OKBleTransport" 
+                                             code:1004 
+                                         userInfo:@{NSLocalizedDescriptionKey: @"Failed to build message buffer"}]);
+        }
         return;
     }
     
@@ -125,11 +122,11 @@ static NSString *const kNotifyCharacteristicUUID = @"00000003-0000-1000-8000-008
     NSLog(@"Base64 Buffer Length: %lu", (unsigned long)base64Data.length);
     NSLog(@"Buffer Base64: %@", base64String);
     
-    NSLog(@"Writing base64 value to peripheral...");
+    NSLog(@"Writing value to peripheral...");
     [self.connectedPeripheral writeValue:base64Data
                       forCharacteristic:self.writeCharacteristic
-                                 type:CBCharacteristicWriteWithoutResponse];
-    NSLog(@"Base64 value written to peripheral");
+                                 type:CBCharacteristicWriteWithResponse];
+    NSLog(@"Value written to peripheral");
 }
 
 // 添加辅助方法用于转换十六进制
@@ -141,31 +138,6 @@ static NSString *const kNotifyCharacteristicUUID = @"00000003-0000-1000-8000-008
     }
     return string;
 }
-
-// - (void)handleFeatureResponse:(NSData *)responseData {
-//     if (!self.featuresCompletion) {
-//         return;
-//     }
-    
-//     NSMutableDictionary *features = [NSMutableDictionary new];
-    
-//     // Parse the response according to OnekeyFeatures message format
-//     // This is a basic implementation - you'll need to adjust based on your exact protocol
-//     if (responseData.length >= 64) {
-//         // Skip header (first 6 bytes)
-//         NSData *messageData = [responseData subdataWithRange:NSMakeRange(6, responseData.length - 6)];
-        
-//         // Parse the features - this is where you'll need to implement your specific protocol parsing
-//         // Example fields based on the protocol definition:
-//         features[@"onekey_device_type"] = @"classic"; // Parse from response
-//         features[@"onekey_firmware_version"] = @"1.0.0"; // Parse from response
-//         features[@"onekey_serial_no"] = @""; // Parse from response
-//         features[@"onekey_ble_name"] = @""; // Parse from response
-//     }
-    
-//     self.featuresCompletion(features, nil);
-//     self.featuresCompletion = nil;
-// }
 
 - (void)enumerateDevicesWithCompletion:(void(^)(NSArray<CBPeripheral *> *devices))completion {
     [[OKBleManager shared] startScan:completion];
@@ -222,7 +194,7 @@ static NSString *const kNotifyCharacteristicUUID = @"00000003-0000-1000-8000-008
     
     NSLog(@"=== Discovering characteristics ===");
     NSLog(@"Service: %@", service);
-    NSLog(@"Characteristics: %@", service.characteristics);
+    NSLog(@"Characteristics count: %lu", (unsigned long)service.characteristics.count);
     
     for (CBCharacteristic *characteristic in service.characteristics) {
         CBUUID *uuid = characteristic.UUID;
@@ -236,21 +208,26 @@ static NSString *const kNotifyCharacteristicUUID = @"00000003-0000-1000-8000-008
         }
     }
     
+    // 添加更多日志
+    NSLog(@"After discovery - Write characteristic: %@", self.writeCharacteristic);
+    NSLog(@"After discovery - Notify characteristic: %@", self.notifyCharacteristic);
+    
     if (self.writeCharacteristic && self.notifyCharacteristic) {
         NSLog(@"All required characteristics discovered");
         if (self.connectCompletion) {
             self.connectCompletion(YES);
         }
+    } else {
+        NSLog(@"Missing required characteristics");
+        if (self.connectCompletion) {
+            self.connectCompletion(NO);
+        }
     }
 }
 
 - (void)peripheral:(CBPeripheral *)peripheral didUpdateValueForCharacteristic:(CBCharacteristic *)characteristic error:(NSError *)error {
-    NSLog(@"=== Characteristic Value Updated ===");
-    NSLog(@"Characteristic: %@", characteristic);
-    NSLog(@"Error: %@", error);
-    
     if (error) {
-        NSLog(@"Error receiving data: %@", error);
+        NSLog(@"Characteristic update error: %@", error);
         if (self.featuresCompletion) {
             self.featuresCompletion(nil, error);
         }
@@ -258,18 +235,57 @@ static NSString *const kNotifyCharacteristicUUID = @"00000003-0000-1000-8000-008
     }
     
     NSData *value = characteristic.value;
-    NSLog(@"Received value: %@", value);
-    NSLog(@"Received value length: %lu", (unsigned long)value.length);
     NSLog(@"Received value hex: %@", [self hexStringFromData:value]);
     
-    NSError *parseError;
-    NSDictionary *response = [OKProtobufHelper receiveOneWithData:value messages:self.messages];
-    NSLog(@"Parsed response: %@", response);
-    
-    if (self.featuresCompletion) {
-        self.featuresCompletion(response, parseError);
-    } else {
-        NSLog(@"Warning: featuresCompletion block is nil");
+    @try {
+        // Check if this is a header chunk (first 3 bytes are 0x3f2323)
+        if (value.length >= 3) {
+            const uint8_t *bytes = value.bytes;
+            if (bytes[0] == 0x3f && bytes[1] == 0x23 && bytes[2] == 0x23) {
+                // This is a header chunk
+                if (value.length >= 9) {
+                    uint32_t length;
+                    [value getBytes:&length range:NSMakeRange(5, 4)];
+                    length = CFSwapInt32BigToHost(length);
+                    self.bufferLength = length;
+                    
+                    NSData *dataAfterHeader = [value subdataWithRange:NSMakeRange(3, value.length - 3)];
+                    self.buffer = [NSMutableData dataWithData:dataAfterHeader];
+                }
+            } else {
+                if (!self.buffer) {
+                    self.buffer = [NSMutableData new];
+                }
+                [self.buffer appendData:value];
+            }
+        }
+        
+        NSLog(@"Current buffer length: %lu", (unsigned long)self.buffer.length);
+        NSLog(@"Expected length: %lu", (unsigned long)self.bufferLength);
+        
+        if (self.buffer.length >= self.bufferLength) {
+            // Process complete buffer
+            NSDictionary *response = [OKProtobufHelper receiveOneWithData:self.buffer 
+                                                               messages:self.messages];
+            
+            // Reset buffer
+            self.bufferLength = 0;
+            self.buffer = nil;
+            
+            // Call completion with features
+            if (self.featuresCompletion) {
+                self.featuresCompletion(response, nil);
+                self.featuresCompletion = nil;
+            }
+        }
+    } @catch (NSException *exception) {
+        NSLog(@"Error processing characteristic update: %@", exception);
+        if (self.featuresCompletion) {
+            self.featuresCompletion(nil, [NSError errorWithDomain:@"OKBleTransport" 
+                                                           code:1006 
+                                                       userInfo:@{NSLocalizedDescriptionKey: exception.reason}]);
+            self.featuresCompletion = nil;
+        }
     }
 }
 

@@ -14,6 +14,8 @@
 @property (nonatomic, strong, readonly) CBCharacteristic *notifyCharacteristic;
 @property (nonatomic, strong, readonly) NSMutableArray<CBPeripheral *> *discoveredDevices;
 
+@property (nonatomic, copy, readonly) void (^currentCompletion)(NSString *response, NSError *error);
+
 - (void)searchDevices:(void(^)(NSArray<CBPeripheral *> *devices))completion;
 - (void)connectDevice:(NSString *)uuid completion:(void(^)(BOOL success))completion;
 - (void)getFeatures:(NSString *)uuid completion:(void(^)(NSDictionary *features, NSError *error))completion;
