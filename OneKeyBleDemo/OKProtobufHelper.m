@@ -1,4 +1,7 @@
 #import "OKProtobufHelper.h"
+#import "../MessagesCommon.pbobjc.h"
+#import "../MessagesManagement.pbobjc.h"
+#import <Protobuf/GPBMessage.h>
 
 @implementation OKProtobufHelper
 
@@ -20,40 +23,102 @@
     return buffer;
 }
 
-+ (NSDictionary *)receiveOneWithData:(NSData *)data messages:(id)messages {
-    NSLog(@"Received data length: %lu", (unsigned long)data.length);
-    NSLog(@"Received data hex: %@", [self hexStringFromData:data]);
++ (id)receiveOne:(id)messages response:(NSString *)response error:(NSError **)error {
+    NSLog(@"\n=== 🔄 ReceiveOne Process Start ===");
+    NSLog(@"📥 Input Response Length: %lu", (unsigned long)response.length);
     
-    if (!data || data.length < 3) {
-        NSLog(@"Invalid data: too short");
+    NSData *data = [self hexStringToData:response];
+    if (!data) {
+        NSLog(@"❌ Failed to convert hex string to data");
+        if (error) {
+            *error = [NSError errorWithDomain:@"com.onekey.ble" 
+                                       code:-1 
+                                   userInfo:@{NSLocalizedDescriptionKey: @"Invalid hex string"}];
+        }
         return nil;
     }
     
-    // 解析头部获取 typeId (前两个字节)
-    uint16_t typeId = CFSwapInt16BigToHost(*(uint16_t *)data.bytes);
-    NSLog(@"Type ID: %d", typeId);
-    
-    // 获取消息内容 (跳过头部)
-    NSData *messageBuffer = [data subdataWithRange:NSMakeRange(2, data.length - 2)];
-    
-    // 根据 typeId 获取消息类型
-    NSString *messageName = [self getMessageNameForTypeId:typeId fromMessages:messages];
-    if (!messageName) {
-        NSLog(@"Unknown message type for typeId: %d", typeId);
+    NSError *protocolError;
+    NSDictionary *protocolData = [self decodeProtocol:data error:&protocolError];
+    if (!protocolData) {
+        NSLog(@"❌ Protocol decode failed: %@", protocolError);
+        if (error) {
+            *error = protocolError;
+        }
         return nil;
     }
     
-    // 解析 protobuf 消息
-    NSError *error = nil;
-    id decodedMessage = [self decodeProtobufMessage:messageBuffer forType:messageName messages:messages error:&error];
-    if (error) {
-        NSLog(@"Failed to decode protobuf message: %@", error);
+    NSInteger typeId = [protocolData[@"typeId"] integerValue];
+    NSString *messageName = [self getMessageNameFromType:typeId messages:messages];
+    NSLog(@"📦 Message Type: %@ (ID: %ld)", messageName, (long)typeId);
+    
+    // 使用 protobuf 生成的类来创建消息
+    Class messageClass = NSClassFromString(messageName);
+    if (!messageClass) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"com.onekey.ble" 
+                                       code:-1 
+                                   userInfo:@{NSLocalizedDescriptionKey: @"Message class not found"}];
+        }
         return nil;
     }
     
+    NSError *parseError = nil;
+    GPBMessage *message = [messageClass parseFromData:protocolData[@"buffer"] error:&parseError];
+    if (parseError) {
+        if (error) {
+            *error = parseError;
+        }
+        return nil;
+    }
+    
+    // 解析消息到字典
+    NSMutableDictionary *messageDict = [self parseMessageToDict:message];
+    messageDict[@"type"] = messageName;
+    
+    return messageDict;
+}
+
++ (id)receiveOneWithData:(NSData *)data messages:(id)messages error:(NSError **)error {
+    NSLog(@"\n=== 🔄 ReceiveOne Process Start ===");
+    NSLog(@"📥 Input Data Length: %lu", (unsigned long)data.length);
+    
+    NSError *protocolError;
+    NSDictionary *protocolData = [self decodeProtocol:data error:&protocolError];
+    if (!protocolData) {
+        if (error) {
+            *error = protocolError;
+        }
+        return nil;
+    }
+    
+    NSInteger typeId = [protocolData[@"typeId"] integerValue];
+    NSString *messageName = [self getMessageNameFromType:typeId messages:messages];
+    NSLog(@"📦 Message Type: %@ (ID: %ld)", messageName, (long)typeId);
+    
+    Class messageClass = NSClassFromString(messageName);
+    if (!messageClass) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"com.onekey.ble" 
+                                       code:-1 
+                                   userInfo:@{NSLocalizedDescriptionKey: @"Message class not found"}];
+        }
+        return nil;
+    }
+    
+    NSError *parseError = nil;
+    GPBMessage *message = [messageClass parseFromData:protocolData[@"buffer"] error:&parseError];
+    if (parseError) {
+        if (error) {
+            *error = parseError;
+        }
+        return nil;
+    }
+    
+    NSDictionary *messageDict = [self parseMessageToDict:message];
     return @{
-        @"message": decodedMessage ?: [NSNull null],
-        @"type": messageName
+        @"type": messageName,
+        @"message": messageDict ?: @{}
     };
 }
 
@@ -88,6 +153,170 @@
         [string appendFormat:@"%02x", bytes[i]];
     }
     return string;
+}
+
++ (NSString *)getMessageNameForTypeId:(NSInteger)typeId fromMessages:(id)messages {
+    NSLog(@"\n=== 🔍 Message Type Lookup ===");
+    NSLog(@"🔑 Searching for Type ID: %ld", (long)typeId);
+    
+    if (![messages isKindOfClass:[NSDictionary class]]) {
+        NSLog(@"❌ Invalid messages configuration");
+        return nil;
+    }
+    
+    NSDictionary *messagesDict = (NSDictionary *)messages;
+    for (NSString *key in messagesDict) {
+        if ([messagesDict[key] integerValue] == typeId) {
+            NSLog(@"✅ Found message type: %@\n", key);
+            return key;
+        }
+    }
+    
+    NSLog(@"⚠️ Unknown message type ID: %ld\n", (long)typeId);
+    return nil;
+}
+
++ (id)decodeProtobufMessage:(NSData *)buffer forType:(NSString *)messageName messages:(id)messages error:(NSError **)error {
+    Class messageClass = NSClassFromString(messageName);
+    if (!messageClass) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"OKProtobufHelper" 
+                                       code:-1 
+                                   userInfo:@{NSLocalizedDescriptionKey: @"Message class not found"}];
+        }
+        return nil;
+    }
+    
+    NSError *parseError = nil;
+    GPBMessage *message = [messageClass parseFromData:buffer error:&parseError];
+    if (parseError) {
+        if (error) {
+            *error = parseError;
+        }
+        return nil;
+    }
+    
+    return [self parseMessageToDict:message];
+}
+
++ (NSString *)getMessageNameFromType:(NSInteger)typeId messages:(id)messages {
+    if (![messages isKindOfClass:[NSDictionary class]]) {
+        return nil;
+    }
+    
+    NSDictionary *messagesDict = (NSDictionary *)messages;
+    for (NSString *key in messagesDict) {
+        if ([messagesDict[key] integerValue] == typeId) {
+            return key;
+        }
+    }
+    
+    return nil;
+}
+
++ (NSDictionary *)decodeProtocol:(NSData *)data error:(NSError **)error {
+    if (!data || data.length < 6) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"com.onekey.ble" 
+                                       code:-1 
+                                   userInfo:@{NSLocalizedDescriptionKey: @"Invalid data length"}];
+        }
+        return nil;
+    }
+    
+    uint16_t type = 0;
+    [data getBytes:&type range:NSMakeRange(0, 2)];
+    type = CFSwapInt16BigToHost(type);
+    
+    uint32_t length = 0;
+    [data getBytes:&length range:NSMakeRange(2, 4)];
+    length = CFSwapInt32BigToHost(length);
+    
+    if (data.length < length + 6) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"com.onekey.ble" 
+                                       code:-1 
+                                   userInfo:@{NSLocalizedDescriptionKey: @"Data too short"}];
+        }
+        return nil;
+    }
+    
+    NSData *buffer = [data subdataWithRange:NSMakeRange(6, length)];
+    
+    return @{
+        @"typeId": @(type),
+        @"buffer": buffer
+    };
+}
+
++ (NSDictionary *)parseMessageToDict:(GPBMessage *)message {
+    if (!message) {
+        return @{};
+    }
+    
+    NSMutableDictionary *result = [NSMutableDictionary dictionary];
+    GPBDescriptor *descriptor = [[message class] descriptor];
+    NSArray *fields = descriptor.fields;
+    
+    for (GPBFieldDescriptor *field in fields) {
+        NSString *fieldName = field.name;
+        id value = [message valueForKey:fieldName];
+        
+        if (value) {
+            if ([value isKindOfClass:[GPBMessage class]]) {
+                // 递归处理嵌套消息
+                result[fieldName] = [self parseMessageToDict:value];
+            } else if ([value isKindOfClass:[NSArray class]] || 
+                       [value isKindOfClass:[GPBEnumArray class]]) {
+                // 处理数组类型
+                result[fieldName] = [self transformValue:value field:field];
+            } else {
+                // 处理基本类型
+                result[fieldName] = value;
+            }
+        }
+    }
+    
+    return result;
+}
+
++ (id)transformValue:(id)value field:(GPBFieldDescriptor *)field {
+    if (!value) {
+        return [NSNull null];
+    }
+    
+    // 处理字节类型
+    if (field.dataType == GPBDataTypeBytes) {
+        if ([value isKindOfClass:[NSData class]]) {
+            return [self dataToHexString:value];
+        }
+        return value;
+    }
+    
+    // 处理枚举数组
+    if ([value isKindOfClass:[GPBEnumArray class]]) {
+        GPBEnumArray *enumArray = (GPBEnumArray *)value;
+        NSMutableArray *result = [NSMutableArray arrayWithCapacity:enumArray.count];
+        for (NSUInteger i = 0; i < enumArray.count; i++) {
+            [result addObject:@([enumArray valueAtIndex:i])];
+        }
+        return result;
+    }
+    
+    // 处理普通数组
+    if ([value isKindOfClass:[NSArray class]]) {
+        NSMutableArray *result = [NSMutableArray array];
+        for (id item in value) {
+            if ([item isKindOfClass:[GPBMessage class]]) {
+                [result addObject:[self parseMessageToDict:item]];
+            } else {
+                [result addObject:item];
+            }
+        }
+        return result;
+    }
+    
+    return value;
 }
 
 @end 

@@ -265,18 +265,26 @@ static NSString *const kNotifyCharacteristicUUID = @"00000003-0000-1000-8000-008
         
         if (self.buffer.length >= self.bufferLength) {
             // Process complete buffer
+            NSError *responseError = nil;
             NSDictionary *response = [OKProtobufHelper receiveOneWithData:self.buffer 
-                                                               messages:self.messages];
+                                                             messages:self.messages 
+                                                               error:&responseError];
+            
+            if (responseError) {
+                if (self.featuresCompletion) {
+                    self.featuresCompletion(nil, responseError);
+                    self.featuresCompletion = nil;
+                }
+            } else {
+                if (self.featuresCompletion) {
+                    self.featuresCompletion(response, nil);
+                    self.featuresCompletion = nil;
+                }
+            }
             
             // Reset buffer
             self.bufferLength = 0;
             self.buffer = nil;
-            
-            // Call completion with features
-            if (self.featuresCompletion) {
-                self.featuresCompletion(response, nil);
-                self.featuresCompletion = nil;
-            }
         }
     } @catch (NSException *exception) {
         NSLog(@"Error processing characteristic update: %@", exception);
