@@ -3,7 +3,9 @@
 
 @interface OKBleTransport : NSObject <CBCentralManagerDelegate, CBPeripheralDelegate>
 
+@property (nonatomic, copy) NSString *baseUrl;
 @property (nonatomic, assign) BOOL configured;
+@property (nonatomic, assign) BOOL stopped;
 @property (nonatomic, strong) NSDictionary *messages;
 
 @property (nonatomic, strong, readonly) CBCentralManager *centralManager;

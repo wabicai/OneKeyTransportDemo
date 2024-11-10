@@ -21,12 +21,23 @@
     
     // 配置 transport
     self.bleTransport.configured = YES;
+    /**
+     * from messages.proto
+     * lint 81
+     * enum MessageType { 
+     * ...
+     * MessageType_Initialize = 0 [(bitcoin_only) = true, (wire_in) = true, (wire_tiny) = true];
+     * ...
+     * }
+     */
+    
     self.bleTransport.messages = @{
         @"Initialize": @0,
         @"Success": @2,
         @"Features": @17,
         @"OnekeyGetFeatures": @10025,
         @"OnekeyFeatures": @10026,
+        @"LockDevice": @24,
     };
     
     [self setupUI];
