@@ -21,6 +21,10 @@
 						<string>This app needs Bluetooth access to connect to OneKey devices</string>
 						<key>NSBluetoothPeripheralUsageDescription</key>
 						<string>This app needs Bluetooth access to connect to OneKey devices</string>
+						<key>UIBackgroundModes</key>
+						<array>
+							<string>bluetooth-central</string>
+						</array>
 					</dict>
 				</array>
 			</dict>
