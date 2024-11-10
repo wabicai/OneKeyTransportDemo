@@ -1,15 +1,23 @@
 #import <Foundation/Foundation.h>
+#import <CoreBluetooth/CoreBluetooth.h>
 
-@interface OKBleTransport : NSObject
+@interface OKBleTransport : NSObject <CBCentralManagerDelegate, CBPeripheralDelegate>
 
 @property (nonatomic, copy) NSString *baseUrl;
 @property (nonatomic, assign) BOOL configured;
 @property (nonatomic, assign) BOOL stopped;
 @property (nonatomic, strong) NSDictionary *messages;
 
-- (void)enumerateDevicesWithCompletion:(void (^)(NSArray *devices, NSError *error))completion;
-- (void)acquireDevice:(NSString *)path session:(NSString *)session completion:(void (^)(NSError *error))completion;
-- (void)call:(NSString *)session name:(NSString *)name data:(NSDictionary *)data completion:(void (^)(id result, NSError *error))completion;
-- (void)releaseSession:(NSString *)session completion:(void (^)(NSError *error))completion;
+@property (nonatomic, strong, readonly) CBCentralManager *centralManager;
+@property (nonatomic, strong, readonly) CBPeripheral *connectedPeripheral;
+@property (nonatomic, strong, readonly) CBCharacteristic *writeCharacteristic;
+@property (nonatomic, strong, readonly) CBCharacteristic *notifyCharacteristic;
+@property (nonatomic, strong, readonly) NSMutableArray<CBPeripheral *> *discoveredDevices;
+
+- (void)searchDevices:(void(^)(NSArray<CBPeripheral *> *devices))completion;
+- (void)connectDevice:(NSString *)uuid completion:(void(^)(BOOL success))completion;
+- (void)getFeatures:(NSString *)uuid completion:(void(^)(NSDictionary *features, NSError *error))completion;
+- (void)enumerateDevicesWithCompletion:(void(^)(NSArray<CBPeripheral *> *devices))completion;
+- (BOOL)isOnekeyDevice:(NSString *)name;
 
 @end 

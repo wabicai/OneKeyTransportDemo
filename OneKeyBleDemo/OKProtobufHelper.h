@@ -13,4 +13,9 @@
 + (NSData *)hexStringToData:(NSString *)hexString;
 + (NSString *)dataToHexString:(NSData *)data;
 
++ (NSData *)buildBuffersWithName:(NSString *)name 
+                         params:(NSDictionary *)params 
+                      messages:(NSDictionary *)messages;
++ (NSDictionary *)receiveOneWithData:(NSData *)data messages:(id)messages;
+
 @end 
