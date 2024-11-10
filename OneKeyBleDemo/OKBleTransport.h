@@ -21,5 +21,9 @@
 - (void)getFeatures:(NSString *)uuid completion:(void(^)(NSDictionary *features, NSError *error))completion;
 - (void)enumerateDevicesWithCompletion:(void(^)(NSArray<CBPeripheral *> *devices))completion;
 - (BOOL)isOnekeyDevice:(NSString *)name;
+- (void)lockDevice:(NSString *)uuid completion:(void(^)(BOOL success, NSError *error))completion;
+- (void)sendRequest:(NSString *)command 
+             params:(NSDictionary *)params 
+         completion:(void(^)(NSDictionary *response, NSError *error))completion;
 
 @end 

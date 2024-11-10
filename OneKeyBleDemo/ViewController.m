@@ -6,6 +6,7 @@
 @property (nonatomic, strong, readwrite) OKBleTransport *bleTransport;
 @property (nonatomic, strong, readwrite) UITextView *logTextView;
 @property (nonatomic, strong, readwrite) UIScrollView *scrollView;
+@property (nonatomic, strong, readwrite) UIButton *lockDeviceButton;
 
 @end
 
@@ -53,7 +54,7 @@
     searchButton.layer.cornerRadius = 8;
     [self.view addSubview:searchButton];
     
-    // Get Features Button (调整位置)
+    // Get Features Button
     UIButton *getFeaturesButton = [UIButton buttonWithType:UIButtonTypeSystem];
     [getFeaturesButton setTitle:@"Get Features" forState:UIControlStateNormal];
     getFeaturesButton.frame = CGRectMake(20, CGRectGetMaxY(searchButton.frame) + 20, self.view.frame.size.width - 40, 44);
@@ -63,11 +64,23 @@
     getFeaturesButton.layer.cornerRadius = 8;
     [self.view addSubview:getFeaturesButton];
     
-    // Add Log TextView
-    self.scrollView = [[UIScrollView alloc] initWithFrame:CGRectMake(20, CGRectGetMaxY(getFeaturesButton.frame) + 20, 
+    // Lock Device Button
+    self.lockDeviceButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    [self.lockDeviceButton setTitle:@"Lock Device" forState:UIControlStateNormal];
+    self.lockDeviceButton.frame = CGRectMake(20, CGRectGetMaxY(getFeaturesButton.frame) + 20, self.view.frame.size.width - 40, 44);
+    [self.lockDeviceButton addTarget:self action:@selector(lockDeviceButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
+    self.lockDeviceButton.backgroundColor = [UIColor systemRedColor];
+    [self.lockDeviceButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+    self.lockDeviceButton.layer.cornerRadius = 8;
+    [self.view addSubview:self.lockDeviceButton];
+    
+    // Log TextView (adjusted position)
+    self.scrollView = [[UIScrollView alloc] initWithFrame:CGRectMake(20, 
+                                                                    CGRectGetMaxY(self.lockDeviceButton.frame) + 20, 
                                                                     self.view.frame.size.width - 40, 
-                                                                    self.view.frame.size.height - CGRectGetMaxY(getFeaturesButton.frame) - 40)];
+                                                                    self.view.frame.size.height - CGRectGetMaxY(self.lockDeviceButton.frame) - 40)];
     self.scrollView.backgroundColor = [UIColor systemGrayColor];
+    self.scrollView.layer.cornerRadius = 8;
     [self.view addSubview:self.scrollView];
     
     self.logTextView = [[UITextView alloc] initWithFrame:self.scrollView.bounds];
@@ -179,6 +192,30 @@
             [self appendLog:[NSString stringWithFormat:@"Features: %@", features]];
         } else {
             [self appendLog:@"Failed to get features: No data received"];
+        }
+    }];
+}
+
+- (void)lockDeviceButtonTapped:(UIButton *)sender {
+    [self appendLog:@"🔒 Lock Device button tapped"];
+    [self performLockDevice];
+}
+
+- (void)performLockDevice {
+    // Get the connected device UUID
+    NSString *deviceUUID = self.bleTransport.connectedPeripheral.identifier.UUIDString;
+    if (!deviceUUID) {
+        [self appendLog:@"❌ No device connected"];
+        return;
+    }
+    
+    [self appendLog:@"🔄 Sending lock command..."];
+    
+    [self.bleTransport lockDevice:deviceUUID completion:^(BOOL success, NSError *error) {
+        if (success) {
+            [self appendLog:@"✅ Device locked successfully"];
+        } else {
+            [self appendLog:[NSString stringWithFormat:@"❌ Lock failed: %@", error.localizedDescription]];
         }
     }];
 }

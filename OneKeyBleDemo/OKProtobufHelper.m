@@ -1,24 +1,66 @@
 #import "OKProtobufHelper.h"
 #import "../MessagesCommon.pbobjc.h"
 #import "../MessagesManagement.pbobjc.h"
-#import <Protobuf/GPBMessage.h>
 
 @implementation OKProtobufHelper
 
-+ (NSData *)buildBuffersWithName:(NSString *)name params:(NSDictionary *)params messages:(NSDictionary *)messages {
-    // Magic bytes and header
-    uint8_t header[] = {
-        0x3F, 0x23, 0x23,  // Magic bytes
-        0x00, 0x00, 0x00   // Length (0 for GetFeatures)
-    };
++ (NSData *)buildBuffer:(NSString *)name params:(NSDictionary *)params messages:(NSDictionary *)messages {
+    NSLog(@"=== 🔧 Building Buffer ===");
+    NSLog(@"Command: %@", name);
+    NSLog(@"Params: %@", params);
     
-    // Create buffer with 64-byte capacity
+    // Get message type ID
+    NSNumber *messageType = messages[name];
+    if (!messageType) {
+        NSLog(@"❌ Message type not found for: %@", name);
+        return nil;
+    }
+    
+    // Create protobuf message
+    Class messageClass = NSClassFromString(name);
+    if (!messageClass) {
+        NSLog(@"❌ Message class not found for: %@", name);
+        return nil;
+    }
+    
+    // Create and populate protobuf message
+    GPBMessage *message = [[messageClass alloc] init];
+    for (NSString *key in params) {
+        [message setValue:params[key] forKey:key];
+    }
+    
+    // Serialize protobuf message
+    NSError *error = nil;
+    NSData *messageData = [message data];
+    if (!messageData) {
+        NSLog(@"❌ Failed to serialize message: %@", error);
+        return nil;
+    }
+    
+    // Create fixed-size buffer (64 bytes)
     NSMutableData *buffer = [NSMutableData dataWithLength:64];
     
-    // Copy header
-    [buffer replaceBytesInRange:NSMakeRange(0, sizeof(header)) withBytes:header];
+    // Add magic bytes (? ## in correct order)
+    uint8_t magicBytes[] = {0x3F, 0x23, 0x23};
+    [buffer replaceBytesInRange:NSMakeRange(0, sizeof(magicBytes)) withBytes:magicBytes];
     
-    // Rest of buffer is already zeroed out by dataWithLength:64
+    // Add message type (2 bytes)
+    uint16_t typeId = CFSwapInt16HostToBig(messageType.unsignedShortValue);
+    [buffer replaceBytesInRange:NSMakeRange(3, sizeof(typeId)) withBytes:&typeId];
+    
+    // Add length (4 bytes)
+    uint32_t length = CFSwapInt32HostToBig((uint32_t)messageData.length);
+    [buffer replaceBytesInRange:NSMakeRange(5, sizeof(length)) withBytes:&length];
+    
+    // Add message data if any (starting at offset 9)
+    if (messageData.length > 0) {
+        NSUInteger maxDataLength = buffer.length - 9;
+        NSUInteger copyLength = MIN(messageData.length, maxDataLength);
+        [buffer replaceBytesInRange:NSMakeRange(9, copyLength) withBytes:messageData.bytes];
+    }
+    
+    NSLog(@"✅ Buffer built successfully");
+    NSLog(@"Buffer length: %lu", (unsigned long)buffer.length);
     
     return buffer;
 }
@@ -29,7 +71,6 @@
     
     NSData *data = [self hexStringToData:response];
     if (!data) {
-        NSLog(@"❌ Failed to convert hex string to data");
         if (error) {
             *error = [NSError errorWithDomain:@"com.onekey.ble" 
                                        code:-1 
@@ -38,45 +79,7 @@
         return nil;
     }
     
-    NSError *protocolError;
-    NSDictionary *protocolData = [self decodeProtocol:data error:&protocolError];
-    if (!protocolData) {
-        NSLog(@"❌ Protocol decode failed: %@", protocolError);
-        if (error) {
-            *error = protocolError;
-        }
-        return nil;
-    }
-    
-    NSInteger typeId = [protocolData[@"typeId"] integerValue];
-    NSString *messageName = [self getMessageNameFromType:typeId messages:messages];
-    NSLog(@"📦 Message Type: %@ (ID: %ld)", messageName, (long)typeId);
-    
-    // 使用 protobuf 生成的类来创建消息
-    Class messageClass = NSClassFromString(messageName);
-    if (!messageClass) {
-        if (error) {
-            *error = [NSError errorWithDomain:@"com.onekey.ble" 
-                                       code:-1 
-                                   userInfo:@{NSLocalizedDescriptionKey: @"Message class not found"}];
-        }
-        return nil;
-    }
-    
-    NSError *parseError = nil;
-    GPBMessage *message = [messageClass parseFromData:protocolData[@"buffer"] error:&parseError];
-    if (parseError) {
-        if (error) {
-            *error = parseError;
-        }
-        return nil;
-    }
-    
-    // 解析消息到字典
-    NSMutableDictionary *messageDict = [self parseMessageToDict:message];
-    messageDict[@"type"] = messageName;
-    
-    return messageDict;
+    return [self receiveOneWithData:data messages:messages error:error];
 }
 
 + (id)receiveOneWithData:(NSData *)data messages:(id)messages error:(NSError **)error {

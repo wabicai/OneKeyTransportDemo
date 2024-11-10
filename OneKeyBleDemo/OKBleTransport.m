@@ -65,12 +65,24 @@ static NSString *const kNotifyCharacteristicUUID = @"00000003-0000-1000-8000-008
 }
 
 - (void)getFeatures:(NSString *)uuid completion:(void(^)(NSDictionary *features, NSError *error))completion {
-    NSLog(@"=== Getting Features ===");
-    NSLog(@"Device UUID: %@", uuid);
-    NSLog(@"Connected Peripheral: %@", self.connectedPeripheral);
-    NSLog(@"Write Characteristic: %@", self.writeCharacteristic);
-    
-    self.featuresCompletion = completion;
+    [self sendRequest:@"Initialize" params:@{} completion:completion];
+}
+
+- (void)lockDevice:(NSString *)uuid completion:(void(^)(BOOL success, NSError *error))completion {
+    [self sendRequest:@"LockDevice" params:@{} completion:^(NSDictionary *response, NSError *error) {
+        if (error) {
+            completion(NO, error);
+        } else {
+            BOOL success = [response[@"type"] isEqualToString:@"Success"];
+            completion(success, nil);
+        }
+    }];
+}
+
+- (void)sendRequest:(NSString *)command 
+             params:(NSDictionary *)params 
+         completion:(void(^)(NSDictionary *response, NSError *error))completion {
+    NSLog(@"=== Sending Request: %@ ===", command);
     
     if (!self.connectedPeripheral) {
         if (completion) {
@@ -100,11 +112,11 @@ static NSString *const kNotifyCharacteristicUUID = @"00000003-0000-1000-8000-008
     }
     
     NSLog(@"Building message buffer...");
-    NSData *messageData = [OKProtobufHelper buildBuffersWithName:@"GetFeatures"
-                                                        params:@{}
-                                                     messages:self.messages];
+    NSData *buffer = [OKProtobufHelper buildBuffer:command 
+                                          params:params 
+                                       messages:self.messages];
     
-    if (!messageData) {
+    if (!buffer) {
         if (completion) {
             completion(nil, [NSError errorWithDomain:@"OKBleTransport" 
                                              code:1004 
@@ -114,13 +126,27 @@ static NSString *const kNotifyCharacteristicUUID = @"00000003-0000-1000-8000-008
     }
     
     // Convert to base64 string and back to NSData
-    NSString *base64String = [messageData base64EncodedStringWithOptions:0];
+    NSString *base64String = [buffer base64EncodedStringWithOptions:0];
     NSData *base64Data = [[NSData alloc] initWithBase64EncodedString:base64String options:0];
     
     NSLog(@"=== Buffer Data ===");
-    NSLog(@"Original Buffer Length: %lu", (unsigned long)messageData.length);
+    NSLog(@"Original Buffer Length: %lu", (unsigned long)buffer.length);
     NSLog(@"Base64 Buffer Length: %lu", (unsigned long)base64Data.length);
     NSLog(@"Buffer Base64: %@", base64String);
+    
+    // Store completion handler
+    self.currentCompletion = ^(NSString *response, NSError *error) {
+        if (error) {
+            completion(nil, error);
+        } else {
+            // Parse response
+            NSData *responseData = [response dataUsingEncoding:NSUTF8StringEncoding];
+            NSDictionary *responseDict = [NSJSONSerialization JSONObjectWithData:responseData 
+                                                                       options:0 
+                                                                         error:nil];
+            completion(responseDict, nil);
+        }
+    };
     
     NSLog(@"Writing value to peripheral...");
     [self.connectedPeripheral writeValue:base64Data
@@ -235,7 +261,6 @@ static NSString *const kNotifyCharacteristicUUID = @"00000003-0000-1000-8000-008
     }
     
     NSData *value = characteristic.value;
-    NSLog(@"Received value hex: %@", [self hexStringFromData:value]);
     
     @try {
         // Check if this is a header chunk (first 3 bytes are 0x3f2323)
@@ -269,6 +294,8 @@ static NSString *const kNotifyCharacteristicUUID = @"00000003-0000-1000-8000-008
             NSDictionary *response = [OKProtobufHelper receiveOneWithData:self.buffer 
                                                              messages:self.messages 
                                                                error:&responseError];
+            NSLog(@"hexStringFromData Buffer: %@", [self hexStringFromData:self.buffer]);
+            NSLog(@"Response: %@", response);
             
             if (responseError) {
                 if (self.featuresCompletion) {
