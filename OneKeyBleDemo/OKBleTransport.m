@@ -1,11 +1,6 @@
 #import "OKBleTransport.h"
 #import "OKProtobufHelper.h"
 #import "OKBleManager.h"
-
-static NSString *const kClassicServiceUUID = @"00000001-0000-1000-8000-00805f9b34fb";
-static NSString *const kWriteCharacteristicUUID = @"00000002-0000-1000-8000-00805f9b34fb";
-static NSString *const kNotifyCharacteristicUUID = @"00000003-0000-1000-8000-00805f9b34fb";
-
 @interface OKBleTransport()
 @property (nonatomic, strong, readwrite) CBCentralManager *centralManager;
 @property (nonatomic, strong, readwrite) CBPeripheral *peripheral;
@@ -37,24 +32,39 @@ static NSString *const kNotifyCharacteristicUUID = @"00000003-0000-1000-8000-008
     return self;
 }
 
-- (void)searchDevices:(void(^)(NSArray *devices))completion {
-    self.searchCompletion = completion;
+- (void)searchDevices:(void(^)(NSArray<CBPeripheral *> *devices))completion {
+    // 清空已发现的设备列表
     [self.discoveredDevices removeAllObjects];
-    [self.centralManager scanForPeripheralsWithServices:@[[CBUUID UUIDWithString:kClassicServiceUUID]] 
-                                              options:@{CBCentralManagerScanOptionAllowDuplicatesKey: @NO}];
+    
+    // 保存completion回调
+    self.searchCompletion = completion;
+    
+    // 设置5秒后停止扫描
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [self.centralManager stopScan];
+        if (self.searchCompletion) {
+            self.searchCompletion([self.discoveredDevices copy]);
+            self.searchCompletion = nil;
+        }
+    });
+    
+    // 开始扫描
+    [self.centralManager scanForPeripheralsWithServices:nil options:@{CBCentralManagerScanOptionAllowDuplicatesKey: @NO}];
 }
 
 - (void)connectDevice:(NSString *)uuid completion:(void(^)(BOOL success))completion {
-    NSLog(@"=== Connecting to device ===");
-    NSLog(@"Device UUID: %@", uuid);
+    NSLog(@"Connecting to device with UUID: %@", uuid);
     
-    self.connectCompletion = completion;
     NSUUID *deviceUUID = [[NSUUID alloc] initWithUUIDString:uuid];
     NSArray *peripherals = [self.centralManager retrievePeripheralsWithIdentifiers:@[deviceUUID]];
     
     if (peripherals.count > 0) {
-        NSLog(@"Found peripheral in system, attempting to connect");
         self.connectedPeripheral = peripherals.firstObject;
+        self.connectedPeripheral.delegate = self;
+        self.connectCompletion = completion;
+        
+        // 停止扫描并连接设备
+        [self.centralManager stopScan];
         [self.centralManager connectPeripheral:self.connectedPeripheral options:nil];
     } else {
         NSLog(@"No peripheral found with UUID: %@", uuid);
@@ -214,39 +224,39 @@ static NSString *const kNotifyCharacteristicUUID = @"00000003-0000-1000-8000-008
         NSLog(@"Error discovering characteristics: %@", error);
         if (self.connectCompletion) {
             self.connectCompletion(NO);
+            self.connectCompletion = nil;
         }
         return;
     }
-    
-    NSLog(@"=== Discovering characteristics ===");
-    NSLog(@"Service: %@", service);
-    NSLog(@"Characteristics count: %lu", (unsigned long)service.characteristics.count);
+    NSLog(@"=== Characteristics ===");
+    NSLog(@"Write Characteristic UUID: %@", kWriteCharacteristicUUID);
+    NSLog(@"Notify Characteristic UUID: %@", kNotifyCharacteristicUUID);
+    NSLog(@"Characteristics:%@", service.characteristics);
     
     for (CBCharacteristic *characteristic in service.characteristics) {
-        CBUUID *uuid = characteristic.UUID;
-        if ([uuid.UUIDString isEqualToString:@"0002"]) {
+        NSLog(@"Characteristic: %@", characteristic.UUID);
+
+        if ([characteristic.UUID.UUIDString isEqualToString:@"0002"]) {
             self.writeCharacteristic = characteristic;
-            NSLog(@"Write characteristic discovered: %@", characteristic);
-        } else if ([uuid.UUIDString isEqualToString:@"0003"]) {
+            NSLog(@"Write characteristic found: %@", characteristic.UUID);
+        } else if ([characteristic.UUID.UUIDString isEqualToString:@"0003"]) {
             self.notifyCharacteristic = characteristic;
             [peripheral setNotifyValue:YES forCharacteristic:characteristic];
-            NSLog(@"Notify characteristic discovered: %@", characteristic);
+            NSLog(@"Notify characteristic found: %@", characteristic.UUID);
         }
     }
     
-    // 添加更多日志
-    NSLog(@"After discovery - Write characteristic: %@", self.writeCharacteristic);
-    NSLog(@"After discovery - Notify characteristic: %@", self.notifyCharacteristic);
-    
     if (self.writeCharacteristic && self.notifyCharacteristic) {
-        NSLog(@"All required characteristics discovered");
+        NSLog(@"All characteristics discovered successfully");
         if (self.connectCompletion) {
             self.connectCompletion(YES);
+            self.connectCompletion = nil;
         }
-    } else {
+    }else{
         NSLog(@"Missing required characteristics");
         if (self.connectCompletion) {
             self.connectCompletion(NO);
+            self.connectCompletion = nil;
         }
     }
 }

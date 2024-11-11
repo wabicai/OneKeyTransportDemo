@@ -109,7 +109,7 @@
 }
 
 - (void)searchDeviceButtonTapped:(UIButton *)sender {
-    [self appendLog:@"=== Search Device Start ==="];
+    [self appendLog:@"Starting device search..."];
     [self showDeviceSelectionAlert];
 }
 
@@ -125,15 +125,20 @@
 }
 
 - (void)showDeviceSelectionAlert {
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Select Device"
-                                                                 message:@"Scanning for OneKey devices..."
-                                                          preferredStyle:UIAlertControllerStyleActionSheet];
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Scanning"
+                                                                 message:@"Searching for OneKey devices..."
+                                                          preferredStyle:UIAlertControllerStyleAlert];
     
     [self presentViewController:alert animated:YES completion:^{
-        [self.bleTransport enumerateDevicesWithCompletion:^(NSArray<CBPeripheral *> *devices) {
+        [self.bleTransport searchDevices:^(NSArray<CBPeripheral *> *devices) {
             [alert dismissViewControllerAnimated:YES completion:^{
                 if (devices.count == 0) {
                     [self appendLog:@"No devices found"];
+                    UIAlertController *noDevicesAlert = [UIAlertController alertControllerWithTitle:@"No Devices"
+                                                                                         message:@"No OneKey devices found"
+                                                                                  preferredStyle:UIAlertControllerStyleAlert];
+                    [noDevicesAlert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+                    [self presentViewController:noDevicesAlert animated:YES completion:nil];
                     return;
                 }
                 [self showDeviceList:devices];
