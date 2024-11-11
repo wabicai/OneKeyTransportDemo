@@ -15,4 +15,7 @@
 + (NSString *)dataToHexString:(NSData *)data;
 + (NSDictionary *)parseMessageToDict:(GPBMessage *)message;
 
+// getAllMessageTypes methods
++ (NSDictionary *)getAllMessageTypes;
+
 @end 

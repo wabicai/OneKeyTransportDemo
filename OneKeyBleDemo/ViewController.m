@@ -1,5 +1,6 @@
 #import "ViewController.h"
 #import "OKBleTransport.h"
+#import "OKProtobufHelper.h"
 
 @interface ViewController ()
 
@@ -21,28 +22,9 @@
     
     // 配置 transport
     self.bleTransport.configured = YES;
-    /**
-     * from messages.proto
-     * lint 81
-     * enum MessageType { 
-     * ...
-     * MessageType_Initialize = 0 [(bitcoin_only) = true, (wire_in) = true, (wire_tiny) = true];
-     * ...
-     * }
-     */
     
-    // TODO: 这里也是从 proto 里面读取
-    self.bleTransport.messages = @{
-        @"Initialize": @0,
-        @"Success": @2,
-        @"Features": @17,
-        @"OnekeyGetFeatures": @10025,
-        @"OnekeyFeatures": @10026,
-        @"LockDevice": @24,
-        @"ButtonRequest": @26,
-        @"EthereumGetAddress": @56,
-        @"EthereumGetAddressOneKey": @20102
-    };
+    // 从 protobuf 自动获取消息类型
+    self.bleTransport.messages = [OKProtobufHelper getAllMessageTypes];
     
     [self setupUI];
 }

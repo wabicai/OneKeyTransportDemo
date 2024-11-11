@@ -3,6 +3,8 @@
 #import "../protoInstance/MessagesManagement.pbobjc.h"
 #import "../protoInstance/MessagesEthereum.pbobjc.h"
 #import "../protoInstance/MessagesEthereumOnekey.pbobjc.h"
+#import "../protoInstance/Messages.pbobjc.h"
+#import <objc/runtime.h>
 
 @implementation OKProtobufHelper
 
@@ -78,7 +80,6 @@
     }
 
     NSLog(@"🔍 Message before serialization: %@", message);
-    NSLog(@"🔍 AddressNArray content: %@", [message valueForKey:@"addressNArray"]);
 
     NSError *error = nil;
     NSData *messageData = [message data];
@@ -382,6 +383,47 @@
     
     NSLog(@"↩️ Returning original value of type: %@", NSStringFromClass([value class]));
     return value;
+}
+
++ (NSDictionary *)getAllMessageTypes {
+    static NSDictionary *messageTypes = nil;
+    static dispatch_once_t onceToken;
+    
+    dispatch_once(&onceToken, ^{
+        NSMutableDictionary *types = [NSMutableDictionary dictionary];
+        unsigned int count = 0;
+        const char *prefix = "MessageType_MessageType";
+        
+        // 获取所有枚举值
+        GPBEnumDescriptor *descriptor = MessageType_EnumDescriptor();
+        if (!descriptor) {
+            NSLog(@"❌ Failed to get enum descriptor");
+            return;
+        }
+        
+        // 遍历所有枚举值
+        for (int i = 0; i < 400000; i++) {
+            NSString *name = [descriptor textFormatNameForValue:i];
+            if (!name) continue;
+            NSLog(@"🔍 Enum Name: %@", name);
+            NSLog(@"🔍 Enum Value: %d", i);
+            // 移除前缀 "MessageType_"
+            if ([name hasPrefix:@"MessageType_MessageType_"]) {
+                NSString *shortName = [name substringFromIndex:strlen("MessageType_MessageType_")];
+                NSLog(@"🔍 Short Name: %@", shortName);
+                types[shortName] = @(i);
+            } else if ([name hasPrefix:@"MessageType_"]) {
+                NSString *shortName = [name substringFromIndex:strlen("MessageType_")];
+                NSLog(@"🔍 Short Name: %@", shortName);
+                types[shortName] = @(i);
+            }
+        }
+        
+        messageTypes = [types copy];
+        NSLog(@"✅ Found %lu message types", (unsigned long)messageTypes.count);
+    });
+    
+    return messageTypes;
 }
 
 @end 
