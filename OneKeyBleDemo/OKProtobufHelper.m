@@ -1,35 +1,85 @@
 #import "OKProtobufHelper.h"
-#import "../MessagesCommon.pbobjc.h"
-#import "../MessagesManagement.pbobjc.h"
+#import "../protoInstance/MessagesCommon.pbobjc.h"
+#import "../protoInstance/MessagesManagement.pbobjc.h"
+#import "../protoInstance/MessagesEthereum.pbobjc.h"
+#import "../protoInstance/MessagesEthereumOnekey.pbobjc.h"
 
 @implementation OKProtobufHelper
 
 + (NSData *)buildBuffer:(NSString *)name params:(NSDictionary *)params messages:(NSDictionary *)messages {
-    NSLog(@"=== 🔧 Building Buffer ===");
-    NSLog(@"Command: %@", name);
-    NSLog(@"Params: %@", params);
+    NSLog(@"\n=== 🔧 Building Buffer ===");
+    NSLog(@"📝 Command: %@", name);
+    NSLog(@"📦 Params: %@", params);
+    
+    // 详细记录参数类型
+    [params enumerateKeysAndObjectsUsingBlock:^(NSString *key, id obj, BOOL *stop) {
+        NSLog(@"🔑 Parameter '%@' is of type: %@", key, NSStringFromClass([obj class]));
+        if ([obj isKindOfClass:[NSArray class]]) {
+            NSArray *array = (NSArray *)obj;
+            NSLog(@"📊 Array contents for '%@':", key);
+            [array enumerateObjectsUsingBlock:^(id item, NSUInteger idx, BOOL *stop) {
+                NSLog(@"  [%lu]: %@ (type: %@)", (unsigned long)idx, item, NSStringFromClass([item class]));
+            }];
+        }
+    }];
     
     // Get message type ID
+    // 定义在 ViewController.m 中:self.bleTransport.messages
     NSNumber *messageType = messages[name];
     if (!messageType) {
         NSLog(@"❌ Message type not found for: %@", name);
         return nil;
     }
     
+    NSLog(@"🔑 Message Type ID: %@", messageType);
+
     // Create protobuf message
     Class messageClass = NSClassFromString(name);
     if (!messageClass) {
         NSLog(@"❌ Message class not found for: %@", name);
         return nil;
     }
+
+    NSLog(@"🔑 Message Class: %@", messageClass);
+    NSLog(@"🔑 Params: %@", params);
     
     // Create and populate protobuf message
     GPBMessage *message = [[messageClass alloc] init];
     for (NSString *key in params) {
-        [message setValue:params[key] forKey:key];
+        NSString *capitalizedKey = [key stringByReplacingCharactersInRange:NSMakeRange(0,1)
+                                                              withString:[[key substringToIndex:1] uppercaseString]];
+        
+        // 特殊处理 addressNArray
+        if ([key isEqualToString:@"addressNArray"]) {
+            NSArray *addressArray = params[key];
+            GPBUInt32Array *uint32Array = [[GPBUInt32Array alloc] init];
+            
+            for (NSNumber *number in addressArray) {
+                [uint32Array addValue:[number unsignedIntValue]];
+            }
+            
+            SEL setter = NSSelectorFromString([NSString stringWithFormat:@"set%@:", capitalizedKey]);
+            if ([message respondsToSelector:setter]) {
+                #pragma clang diagnostic push
+                #pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+                [message performSelector:setter withObject:uint32Array];
+                #pragma clang diagnostic pop
+            }
+        } else {
+            // 处理其他参数
+            SEL setter = NSSelectorFromString([NSString stringWithFormat:@"set%@:", capitalizedKey]);
+            if ([message respondsToSelector:setter]) {
+                #pragma clang diagnostic push
+                #pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+                [message performSelector:setter withObject:params[key]];
+                #pragma clang diagnostic pop
+            }
+        }
     }
-    
-    // Serialize protobuf message
+
+    NSLog(@"🔍 Message before serialization: %@", message);
+    NSLog(@"🔍 AddressNArray content: %@", [message valueForKey:@"addressNArray"]);
+
     NSError *error = nil;
     NSData *messageData = [message data];
     if (!messageData) {
@@ -288,6 +338,9 @@
         return [NSNull null];
     }
     
+    NSLog(@"🔍 Transforming value of type: %@", NSStringFromClass([value class]));
+    NSLog(@"📊 Field type: %d", field.dataType);
+    
     // 处理字节类型
     if (field.dataType == GPBDataTypeBytes) {
         if ([value isKindOfClass:[NSData class]]) {
@@ -308,17 +361,26 @@
     
     // 处理普通数组
     if ([value isKindOfClass:[NSArray class]]) {
+        NSLog(@"📦 Processing array with %lu items", (unsigned long)[(NSArray *)value count]);
         NSMutableArray *result = [NSMutableArray array];
-        for (id item in value) {
+        NSArray *array = (NSArray *)value;
+        
+        for (id item in array) {
+            NSLog(@"🔹 Array item type: %@", NSStringFromClass([item class]));
             if ([item isKindOfClass:[GPBMessage class]]) {
                 [result addObject:[self parseMessageToDict:item]];
-            } else {
+            } else if ([item isKindOfClass:[NSNumber class]]) {
+                // 确保数字类型正确处理
                 [result addObject:item];
+            } else {
+                NSLog(@"⚠️ Unknown array item type: %@", NSStringFromClass([item class]));
+                [result addObject:[item description]];
             }
         }
         return result;
     }
     
+    NSLog(@"↩️ Returning original value of type: %@", NSStringFromClass([value class]));
     return value;
 }
 

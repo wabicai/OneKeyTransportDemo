@@ -16,7 +16,10 @@
 @property (nonatomic, strong) NSMutableData *buffer;
 @property (nonatomic, copy, readwrite) void (^currentCompletion)(NSString *response, NSError *error);
 @end
-
+// Add these constants at the top of the file
+static NSString *const kClassicServiceUUID = @"00000001-0000-1000-8000-00805f9b34fb";
+// static NSString *const kWriteCharacteristicUUID = @"00000002-0000-1000-8000-00805f9b34fb";
+// static NSString *const kNotifyCharacteristicUUID = @"00000003-0000-1000-8000-00805f9b34fb";
 @implementation OKBleTransport {
     NSMutableArray<CBPeripheral *> *_discoveredDevices;
 }
@@ -93,7 +96,7 @@
              params:(NSDictionary *)params 
          completion:(void(^)(NSDictionary *response, NSError *error))completion {
     NSLog(@"=== Sending Request: %@ ===", command);
-    
+    NSLog(@"Params: %@", params);
     if (!self.connectedPeripheral) {
         if (completion) {
             completion(nil, [NSError errorWithDomain:@"OKBleTransport" 
@@ -123,7 +126,7 @@
     
     NSLog(@"Building message buffer...");
     NSData *buffer = [OKProtobufHelper buildBuffer:command 
-                                          params:params 
+                                     params:params
                                        messages:self.messages];
     
     if (!buffer) {
@@ -160,8 +163,8 @@
     
     NSLog(@"Writing value to peripheral...");
     [self.connectedPeripheral writeValue:base64Data
-                      forCharacteristic:self.writeCharacteristic
-                                 type:CBCharacteristicWriteWithResponse];
+                          forCharacteristic:self.writeCharacteristic 
+                                     type:CBCharacteristicWriteWithResponse];
     NSLog(@"Value written to peripheral");
 }
 
@@ -229,8 +232,6 @@
         return;
     }
     NSLog(@"=== Characteristics ===");
-    NSLog(@"Write Characteristic UUID: %@", kWriteCharacteristicUUID);
-    NSLog(@"Notify Characteristic UUID: %@", kNotifyCharacteristicUUID);
     NSLog(@"Characteristics:%@", service.characteristics);
     
     for (CBCharacteristic *characteristic in service.characteristics) {
@@ -342,6 +343,30 @@
                                                                            error:nil];
     NSRange range = [regex rangeOfFirstMatchInString:name options:0 range:NSMakeRange(0, name.length)];
     return range.location != NSNotFound;
+}
+
+- (void)getEvmAddress:(NSString *)path 
+         showOnDevice:(BOOL)showOnDevice
+          completion:(void(^)(NSString *address, NSError *error))completion {
+    
+    NSDictionary *params = @{
+        @"path": path,
+        @"showOnOneKey": @(showOnDevice)
+    };
+    
+    [self sendRequest:@"EthereumGetAddress" params:params completion:^(NSDictionary *response, NSError *error) {
+        if (error) {
+            if (completion) {
+                completion(nil, error);
+            }
+            return;
+        }
+        
+        NSString *address = response[@"address"];
+        if (completion) {
+            completion(address, nil);
+        }
+    }];
 }
 
 @end 

@@ -1,10 +1,5 @@
 #import "OKBleManager.h"
 
-// Add these constants at the top of the file
-static NSString *const kClassicServiceUUID = @"00000001-0000-1000-8000-00805f9b34fb";
-static NSString *const kWriteCharacteristicUUID = @"00000002-0000-1000-8000-00805f9b34fb";
-static NSString *const kNotifyCharacteristicUUID = @"00000003-0000-1000-8000-00805f9b34fb";
-
 @interface OKBleManager()
 @property (nonatomic, strong) CBCentralManager *centralManager;
 @property (nonatomic, strong) NSMutableArray<CBPeripheral *> *mutableDiscoveredDevices;

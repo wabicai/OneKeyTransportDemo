@@ -31,6 +31,7 @@
      * }
      */
     
+    // TODO: 这里也是从 proto 里面读取
     self.bleTransport.messages = @{
         @"Initialize": @0,
         @"Success": @2,
@@ -38,6 +39,9 @@
         @"OnekeyGetFeatures": @10025,
         @"OnekeyFeatures": @10026,
         @"LockDevice": @24,
+        @"ButtonRequest": @26,
+        @"EthereumGetAddress": @56,
+        @"EthereumGetAddressOneKey": @20102
     };
     
     [self setupUI];
@@ -89,6 +93,16 @@
     self.logTextView.textColor = [UIColor whiteColor];
     self.logTextView.font = [UIFont systemFontOfSize:14];
     [self.scrollView addSubview:self.logTextView];
+    
+    // EVM Get Address Button
+    UIButton *evmAddressButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    [evmAddressButton setTitle:@"Get EVM Address" forState:UIControlStateNormal];
+    evmAddressButton.frame = CGRectMake(20, CGRectGetMaxY(self.lockDeviceButton.frame) + 20, self.view.frame.size.width - 40, 44);
+    [evmAddressButton addTarget:self action:@selector(evmAddressButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
+    evmAddressButton.backgroundColor = [UIColor systemOrangeColor];
+    [evmAddressButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+    evmAddressButton.layer.cornerRadius = 8;
+    [self.view addSubview:evmAddressButton];
 }
 
 - (void)appendLog:(NSString *)log {
@@ -198,6 +212,7 @@
         } else {
             [self appendLog:@"Failed to get features: No data received"];
         }
+        [self logResponse:@"GetFeatures" response:features error:error];
     }];
 }
 
@@ -222,7 +237,77 @@
         } else {
             [self appendLog:[NSString stringWithFormat:@"❌ Lock failed: %@", error.localizedDescription]];
         }
+        [self logResponse:@"LockDevice" response:success error:error];
     }];
+}
+
+- (void)evmAddressButtonTapped:(UIButton *)sender {
+    [self appendLog:@"📍 Get EVM Address button tapped"];
+    [self performGetEvmAddress];
+}
+
+- (void)performGetEvmAddress {
+    NSString *deviceUUID = self.bleTransport.connectedPeripheral.identifier.UUIDString;
+    if (!deviceUUID) {
+        [self appendLog:@"❌ No device connected"];
+        return;
+    }
+    
+    [self appendLog:@"🔄 Getting EVM address..."];
+    
+    // Convert BIP44 path string to array
+    NSString *path = @"m/44'/60'/0'/0/0";
+    NSArray *pathComponents = [path componentsSeparatedByString:@"/"];
+    NSMutableArray *addressN = [NSMutableArray array];
+    
+    for (NSString *component in pathComponents) {
+        if ([component length] == 0 || [component isEqualToString:@"m"]) {
+            continue;
+        }
+        
+        NSString *cleanComponent = [component stringByReplacingOccurrencesOfString:@"'" withString:@""];
+        NSInteger value = [cleanComponent integerValue];
+        
+        if ([component hasSuffix:@"'"]) {
+            value |= 0x80000000;
+        }
+        
+        [addressN addObject:@(value)];
+    }
+    
+    // Prepare parameters according to the protocol
+    NSDictionary *params = @{
+        @"addressNArray": addressN,
+        @"showDisplay": @NO,
+        @"chainId": @1  // Ethereum mainnet chain ID
+    };
+    
+    [self.bleTransport sendRequest:@"EthereumGetAddressOneKey" params:params completion:^(NSDictionary *response, NSError *error) {
+        [self logResponse:@"EthereumGetAddressOneKey" response:response error:error];
+    }];
+}
+
+- (void)logResponse:(NSString *)command response:(NSDictionary *)response error:(NSError *)error {
+    if (error) {
+        [self appendLog:[NSString stringWithFormat:@"❌ %@ Error: %@", command, error.localizedDescription]];
+        return;
+    }
+    
+    if (response) {
+        [self appendLog:[NSString stringWithFormat:@"=== %@ Response ===", command]];
+        NSError *jsonError;
+        NSData *jsonData = [NSJSONSerialization dataWithJSONObject:response
+                                                         options:NSJSONWritingPrettyPrinted
+                                                           error:&jsonError];
+        if (jsonError) {
+            [self appendLog:[NSString stringWithFormat:@"Response: %@", response]];
+        } else {
+            NSString *jsonString = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
+            [self appendLog:jsonString];
+        }
+    } else {
+        [self appendLog:[NSString stringWithFormat:@"❌ No %@ response received", command]];
+    }
 }
 
 @end
