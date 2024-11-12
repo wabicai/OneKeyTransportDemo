@@ -367,29 +367,4 @@ static NSString *const kClassicServiceUUID = @"00000001-0000-1000-8000-00805f9b3
     NSRange range = [regex rangeOfFirstMatchInString:name options:0 range:NSMakeRange(0, name.length)];
     return range.location != NSNotFound;
 }
-
-- (void)getEvmAddress:(NSString *)path 
-         showOnDevice:(BOOL)showOnDevice
-          completion:(void(^)(NSString *address, NSError *error))completion {
-    
-    NSDictionary *params = @{
-        @"path": path,
-        @"showOnOneKey": @(showOnDevice)
-    };
-    
-    [self sendRequest:@"EthereumGetAddress" params:params completion:^(NSDictionary *response, NSError *error) {
-        if (error) {
-            if (completion) {
-                completion(nil, error);
-            }
-            return;
-        }
-        
-        NSString *address = response[@"address"];
-        if (completion) {
-            completion(address, nil);
-        }
-    }];
-}
-
 @end 

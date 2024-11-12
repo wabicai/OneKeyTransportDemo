@@ -25,8 +25,5 @@
 - (void)sendRequest:(NSString *)command 
              params:(NSDictionary *)params 
          completion:(void(^)(NSDictionary *response, NSError *error))completion;
-- (void)getEvmAddress:(NSString *)path 
-         showOnDevice:(BOOL)showOnDevice
-          completion:(void(^)(NSString *address, NSError *error))completion;
 
 @end 
