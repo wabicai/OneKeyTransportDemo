@@ -15,6 +15,7 @@
 @property (nonatomic, assign) NSInteger bufferLength;
 @property (nonatomic, strong) NSMutableData *buffer;
 @property (nonatomic, copy, readwrite) void (^currentCompletion)(NSString *response, NSError *error);
+@property (nonatomic, strong) NSMutableDictionary<NSString *, void(^)(NSDictionary *, NSError *)> *pendingRequests;
 @end
 // Add these constants at the top of the file
 static NSString *const kClassicServiceUUID = @"00000001-0000-1000-8000-00805f9b34fb";
@@ -30,6 +31,7 @@ static NSString *const kClassicServiceUUID = @"00000001-0000-1000-8000-00805f9b3
         _centralManager = [[CBCentralManager alloc] initWithDelegate:self queue:nil];
         _discoveredDevices = [[NSMutableArray alloc] init];
         _deviceQueue = dispatch_queue_create("com.onekey.ble.devicequeue", DISPATCH_QUEUE_SERIAL);
+        _pendingRequests = [[NSMutableDictionary alloc] init];
         NSLog(@"OKBleTransport initialized with empty discovered devices array");
     }
     return self;
@@ -95,6 +97,12 @@ static NSString *const kClassicServiceUUID = @"00000001-0000-1000-8000-00805f9b3
 - (void)sendRequest:(NSString *)command 
              params:(NSDictionary *)params 
          completion:(void(^)(NSDictionary *response, NSError *error))completion {
+    // 使用 strong 引用的 pendingRequests
+    NSString *requestId = [[NSUUID UUID] UUIDString];
+    if (completion) {
+        [self.pendingRequests setObject:[completion copy] forKey:requestId];
+    }
+    
     NSLog(@"=== Sending Request: %@ ===", command);
     NSLog(@"Params: %@", params);
     if (!self.connectedPeripheral) {
@@ -166,6 +174,36 @@ static NSString *const kClassicServiceUUID = @"00000001-0000-1000-8000-00805f9b3
                           forCharacteristic:self.writeCharacteristic 
                                      type:CBCharacteristicWriteWithResponse];
     NSLog(@"Value written to peripheral");
+}
+
+- (void)handleResponse:(NSDictionary *)response error:(NSError *)error {
+    NSLog(@"🔄 Handling response: %@", response);
+    NSLog(@"📝 Pending requests count: %lu", (unsigned long)self.pendingRequests.count);
+    NSLog(@"🔑 Pending request keys: %@", self.pendingRequests.allKeys);
+    
+    // Get the first pending request (FIFO)
+    NSString *firstRequestId = self.pendingRequests.allKeys.firstObject;
+    if (!firstRequestId) {
+        NSLog(@"⚠️ No pending requests found");
+        return;
+    }
+    
+    void(^completion)(NSDictionary *, NSError *) = self.pendingRequests[firstRequestId];
+    
+    if ([response[@"type"] isEqualToString:@"ButtonRequest"]) {
+        NSLog(@"📱 Received ButtonRequest - keeping completion handler");
+        // For ButtonRequest, don't remove the completion handler yet
+        if (completion) {
+            completion(response, error);
+        }
+    } else {
+        NSLog(@"✅ Regular response - removing completion handler");
+        // For other responses, remove and call the completion handler
+        [self.pendingRequests removeObjectForKey:firstRequestId];
+        if (completion) {
+            completion(response, error);
+        }
+    }
 }
 
 // 添加辅助方法用于转换十六进制
@@ -264,20 +302,18 @@ static NSString *const kClassicServiceUUID = @"00000001-0000-1000-8000-00805f9b3
 
 - (void)peripheral:(CBPeripheral *)peripheral didUpdateValueForCharacteristic:(CBCharacteristic *)characteristic error:(NSError *)error {
     if (error) {
-        NSLog(@"Characteristic update error: %@", error);
-        if (self.featuresCompletion) {
-            self.featuresCompletion(nil, error);
-        }
+        NSLog(@"❌ Characteristic update error: %@", error);
+        [self handleResponse:nil error:error];
         return;
     }
     
     NSData *value = characteristic.value;
-    
     @try {
         // Check if this is a header chunk (first 3 bytes are 0x3f2323)
         if (value.length >= 3) {
             const uint8_t *bytes = value.bytes;
             if (bytes[0] == 0x3f && bytes[1] == 0x23 && bytes[2] == 0x23) {
+                NSLog(@"📦 Received header chunk");
                 // This is a header chunk
                 if (value.length >= 9) {
                     uint32_t length;
@@ -293,45 +329,32 @@ static NSString *const kClassicServiceUUID = @"00000001-0000-1000-8000-00805f9b3
                     self.buffer = [NSMutableData new];
                 }
                 [self.buffer appendData:value];
+                NSLog(@"📥 Appended data to buffer");
             }
         }
         
-        NSLog(@"Current buffer length: %lu", (unsigned long)self.buffer.length);
-        NSLog(@"Expected length: %lu", (unsigned long)self.bufferLength);
+        NSLog(@"📊 Current buffer length: %lu", (unsigned long)self.buffer.length);
+        NSLog(@"📊 Expected length: %lu", (unsigned long)self.bufferLength);
         
         if (self.buffer.length >= self.bufferLength) {
+            NSLog(@"✅ Buffer complete - processing response");
             // Process complete buffer
             NSError *responseError = nil;
             NSDictionary *response = [OKProtobufHelper receiveOne:self.buffer 
-                                                             messages:self.messages 
-                                                               error:&responseError];
-            NSLog(@"hexStringFromData Buffer: %@", [self hexStringFromData:self.buffer]);
-            NSLog(@"Response: %@", response);
+                                                       messages:self.messages 
+                                                         error:&responseError];
             
-            if (responseError) {
-                if (self.featuresCompletion) {
-                    self.featuresCompletion(nil, responseError);
-                    self.featuresCompletion = nil;
-                }
-            } else {
-                if (self.featuresCompletion) {
-                    self.featuresCompletion(response, nil);
-                    self.featuresCompletion = nil;
-                }
-            }
+            [self handleResponse:response error:responseError];
             
             // Reset buffer
             self.bufferLength = 0;
             self.buffer = nil;
         }
     } @catch (NSException *exception) {
-        NSLog(@"Error processing characteristic update: %@", exception);
-        if (self.featuresCompletion) {
-            self.featuresCompletion(nil, [NSError errorWithDomain:@"OKBleTransport" 
-                                                           code:1006 
-                                                       userInfo:@{NSLocalizedDescriptionKey: exception.reason}]);
-            self.featuresCompletion = nil;
-        }
+        NSLog(@"❌ Error processing characteristic update: %@", exception);
+        [self handleResponse:nil error:[NSError errorWithDomain:@"OKBleTransport" 
+                                                         code:1006 
+                                                     userInfo:@{NSLocalizedDescriptionKey: exception.reason}]];
     }
 }
 
