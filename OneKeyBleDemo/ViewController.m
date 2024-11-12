@@ -219,7 +219,7 @@
         } else {
             [self appendLog:[NSString stringWithFormat:@"❌ Lock failed: %@", error.localizedDescription]];
         }
-        [self logResponse:@"LockDevice" response:success error:error];
+        [self logResponse:@"LockDevice" response:@{@"success": @(success)} error:error];
     }];
 }
 
@@ -238,7 +238,7 @@
     [self appendLog:@"🔄 Getting EVM address..."];
     
     // Convert BIP44 path string to array
-    NSString *path = @"m/44'/60'/0'/0/0";
+    NSString *path = @"m/44'/60'/0'/1/1";
     NSArray *pathComponents = [path componentsSeparatedByString:@"/"];
     NSMutableArray *addressN = [NSMutableArray array];
     
@@ -270,7 +270,7 @@
             [weakSelf appendLog:[NSString stringWithFormat:@"❌ Error: %@", error.localizedDescription]];
             return;
         }
-        NSLog(@"🔍 Response: %@", response);
+        [weakSelf appendLog:[NSString stringWithFormat:@"🔍 Response: %@", response]];
         
         // Check if we received a ButtonRequest
         if ([response[@"type"] isEqualToString:@"ButtonRequest"]) {
@@ -283,14 +283,22 @@
                     return;
                 }
                 
+                [weakSelf appendLog:@"✅ Received address response"];
+                
                 NSString *address = addressResponse[@"message"][@"address"];
                 if (address) {
                     [weakSelf appendLog:[NSString stringWithFormat:@"✅ EVM Address: %@", address]];
+                    // 创建一个新的响应字典，只包含必要的信息
+                    NSDictionary *simplifiedResponse = @{
+                        @"type": addressResponse[@"type"],
+                        @"message": @{
+                            @"address": address
+                        }
+                    };
+                    [weakSelf logResponse:@"EthereumGetAddressOneKey" response:simplifiedResponse error:addressError];
                 } else {
                     [weakSelf appendLog:@"❌ Failed to get address"];
                 }
-                
-                [weakSelf logResponse:@"EthereumGetAddressOneKey" response:addressResponse error:addressError];
             }];
         }
     }];
@@ -304,8 +312,42 @@
     
     if (response) {
         [self appendLog:[NSString stringWithFormat:@"=== %@ Response ===", command]];
+        
+        // 创建一个新的可序列化字典
+        NSMutableDictionary *serializableResponse = [NSMutableDictionary dictionary];
+        
+        [response enumerateKeysAndObjectsUsingBlock:^(id key, id obj, BOOL *stop) {
+            if ([obj isKindOfClass:[NSData class]]) {
+                // 将 NSData 转换为 base64 字符串
+                serializableResponse[key] = [(NSData *)obj base64EncodedStringWithOptions:0];
+            } else if ([obj isKindOfClass:[NSDictionary class]]) {
+                // 递归处理嵌套字典
+                NSMutableDictionary *nestedDict = [NSMutableDictionary dictionary];
+                [(NSDictionary *)obj enumerateKeysAndObjectsUsingBlock:^(id nestedKey, id nestedObj, BOOL *nestedStop) {
+                    if ([nestedObj isKindOfClass:[NSData class]]) {
+                        nestedDict[nestedKey] = [(NSData *)nestedObj base64EncodedStringWithOptions:0];
+                    } else if ([nestedObj isKindOfClass:[NSString class]] ||
+                              [nestedObj isKindOfClass:[NSNumber class]] ||
+                              [nestedObj isKindOfClass:[NSNull class]] ||
+                              [nestedObj isKindOfClass:[NSArray class]]) {
+                        nestedDict[nestedKey] = nestedObj;
+                    } else {
+                        nestedDict[nestedKey] = [nestedObj description];
+                    }
+                }];
+                serializableResponse[key] = nestedDict;
+            } else if ([obj isKindOfClass:[NSString class]] ||
+                      [obj isKindOfClass:[NSNumber class]] ||
+                      [obj isKindOfClass:[NSNull class]] ||
+                      [obj isKindOfClass:[NSArray class]]) {
+                serializableResponse[key] = obj;
+            } else {
+                serializableResponse[key] = [obj description];
+            }
+        }];
+        
         NSError *jsonError;
-        NSData *jsonData = [NSJSONSerialization dataWithJSONObject:response
+        NSData *jsonData = [NSJSONSerialization dataWithJSONObject:serializableResponse
                                                          options:NSJSONWritingPrettyPrinted
                                                            error:&jsonError];
         if (jsonError) {
