@@ -688,7 +688,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "172"
             endingLineNumber = "172"
-            landmarkName = "-connectToDevice:"
+            landmarkName = "-continueWithPeripheral:path:"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>

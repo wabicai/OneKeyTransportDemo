@@ -35,73 +35,47 @@
     [searchButton setTitle:@"Search Device" forState:UIControlStateNormal];
     searchButton.frame = CGRectMake(20, 100, self.view.frame.size.width - 40, 44);
     [searchButton addTarget:self action:@selector(searchDeviceButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
-    searchButton.backgroundColor = [UIColor systemGreenColor];
-    [searchButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-    searchButton.layer.cornerRadius = 8;
     [self.view addSubview:searchButton];
     
     // Get Features Button
     UIButton *getFeaturesButton = [UIButton buttonWithType:UIButtonTypeSystem];
     [getFeaturesButton setTitle:@"Get Features" forState:UIControlStateNormal];
-    getFeaturesButton.frame = CGRectMake(20, CGRectGetMaxY(searchButton.frame) + 20, self.view.frame.size.width - 40, 44);
+    getFeaturesButton.frame = CGRectMake(20, 160, self.view.frame.size.width - 40, 44);
     [getFeaturesButton addTarget:self action:@selector(getFeatureButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
-    getFeaturesButton.backgroundColor = [UIColor systemBlueColor];
-    [getFeaturesButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-    getFeaturesButton.layer.cornerRadius = 8;
     [self.view addSubview:getFeaturesButton];
     
     // Lock Device Button
     self.lockDeviceButton = [UIButton buttonWithType:UIButtonTypeSystem];
     [self.lockDeviceButton setTitle:@"Lock Device" forState:UIControlStateNormal];
-    self.lockDeviceButton.frame = CGRectMake(20, CGRectGetMaxY(getFeaturesButton.frame) + 20, self.view.frame.size.width - 40, 44);
+    self.lockDeviceButton.frame = CGRectMake(20, 220, self.view.frame.size.width - 40, 44);
     [self.lockDeviceButton addTarget:self action:@selector(lockDeviceButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
-    self.lockDeviceButton.backgroundColor = [UIColor systemRedColor];
-    [self.lockDeviceButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-    self.lockDeviceButton.layer.cornerRadius = 8;
     [self.view addSubview:self.lockDeviceButton];
     
-    // Log TextView (adjusted position)
-    self.scrollView = [[UIScrollView alloc] initWithFrame:CGRectMake(20, 
-                                                                    CGRectGetMaxY(self.lockDeviceButton.frame) + 20, 
-                                                                    self.view.frame.size.width - 40, 
-                                                                    self.view.frame.size.height - CGRectGetMaxY(self.lockDeviceButton.frame) - 40)];
-    self.scrollView.backgroundColor = [UIColor systemGrayColor];
+    // EVM Address Button
+    UIButton *evmAddressButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    [evmAddressButton setTitle:@"Get EVM Address" forState:UIControlStateNormal];
+    evmAddressButton.frame = CGRectMake(20, 280, self.view.frame.size.width - 40, 44);
+    [evmAddressButton addTarget:self action:@selector(evmAddressButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
+    [self.view addSubview:evmAddressButton];
+    
+    // Add ScrollView for logs
+    self.scrollView = [[UIScrollView alloc] initWithFrame:CGRectMake(20, 340, self.view.frame.size.width - 40, self.view.frame.size.height - 380)];
+    self.scrollView.backgroundColor = [UIColor.systemGrayColor colorWithAlphaComponent:0.1];
     self.scrollView.layer.cornerRadius = 8;
+    self.scrollView.clipsToBounds = YES;
     [self.view addSubview:self.scrollView];
     
+    // Add TextView inside ScrollView
     self.logTextView = [[UITextView alloc] initWithFrame:self.scrollView.bounds];
     self.logTextView.editable = NO;
     self.logTextView.backgroundColor = [UIColor clearColor];
-    self.logTextView.textColor = [UIColor whiteColor];
-    self.logTextView.font = [UIFont systemFontOfSize:14];
+    self.logTextView.font = [UIFont monospacedSystemFontOfSize:12 weight:UIFontWeightRegular];
+    self.logTextView.textColor = [UIColor labelColor];
+    self.logTextView.textContainerInset = UIEdgeInsetsMake(8, 8, 8, 8);
     [self.scrollView addSubview:self.logTextView];
     
-    // EVM Get Address Button
-    UIButton *evmAddressButton = [UIButton buttonWithType:UIButtonTypeSystem];
-    [evmAddressButton setTitle:@"Get EVM Address" forState:UIControlStateNormal];
-    evmAddressButton.frame = CGRectMake(20, CGRectGetMaxY(self.lockDeviceButton.frame) + 20, self.view.frame.size.width - 40, 44);
-    [evmAddressButton addTarget:self action:@selector(evmAddressButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
-    evmAddressButton.backgroundColor = [UIColor systemOrangeColor];
-    [evmAddressButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-    evmAddressButton.layer.cornerRadius = 8;
-    [self.view addSubview:evmAddressButton];
-}
-
-- (void)appendLog:(NSString *)log {
-    dispatch_async(dispatch_get_main_queue(), ^{
-        NSString *timestamp = [NSDateFormatter localizedStringFromDate:[NSDate date]
-                                                           dateStyle:NSDateFormatterNoStyle
-                                                           timeStyle:NSDateFormatterMediumStyle];
-        NSString *logWithTimestamp = [NSString stringWithFormat:@"[%@] %@\n", timestamp, log];
-        
-        self.logTextView.text = [self.logTextView.text stringByAppendingString:logWithTimestamp];
-        
-        // Scroll to bottom
-        CGPoint bottomOffset = CGPointMake(0, self.logTextView.contentSize.height - self.logTextView.bounds.size.height);
-        if (bottomOffset.y > 0) {
-            [self.logTextView setContentOffset:bottomOffset animated:YES];
-        }
-    });
+    // Set initial log text
+    self.logTextView.text = @"Logs will appear here...\n";
 }
 
 - (void)searchDeviceButtonTapped:(UIButton *)sender {
@@ -359,6 +333,23 @@
     } else {
         [self appendLog:[NSString stringWithFormat:@"❌ No %@ response received", command]];
     }
+}
+
+- (void)appendLog:(NSString *)log {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        NSString *timestamp = [NSDateFormatter localizedStringFromDate:[NSDate date]
+                                                           dateStyle:NSDateFormatterNoStyle
+                                                           timeStyle:NSDateFormatterMediumStyle];
+        NSString *logWithTimestamp = [NSString stringWithFormat:@"[%@] %@\n", timestamp, log];
+        
+        self.logTextView.text = [self.logTextView.text stringByAppendingString:logWithTimestamp];
+        
+        // Scroll to bottom
+        CGPoint bottomOffset = CGPointMake(0, self.logTextView.contentSize.height - self.logTextView.bounds.size.height);
+        if (bottomOffset.y > 0) {
+            [self.logTextView setContentOffset:bottomOffset animated:YES];
+        }
+    });
 }
 
 @end
