@@ -116,24 +116,8 @@
     return buffer;
 }
 
-+ (id)receiveOne:(id)messages response:(NSString *)response error:(NSError **)error {
-    NSLog(@"\n=== 🔄 ReceiveOne Process Start ===");
-    NSLog(@"📥 Input Response Length: %lu", (unsigned long)response.length);
-    
-    NSData *data = [self hexStringToData:response];
-    if (!data) {
-        if (error) {
-            *error = [NSError errorWithDomain:@"com.onekey.ble" 
-                                       code:-1 
-                                   userInfo:@{NSLocalizedDescriptionKey: @"Invalid hex string"}];
-        }
-        return nil;
-    }
-    
-    return [self receiveOneWithData:data messages:messages error:error];
-}
 
-+ (id)receiveOneWithData:(NSData *)data messages:(id)messages error:(NSError **)error {
++ (id)receiveOne:(NSData *)data messages:(id)messages error:(NSError **)error {
     NSLog(@"\n=== 🔄 ReceiveOne Process Start ===");
     NSLog(@"📥 Input Data Length: %lu", (unsigned long)data.length);
     

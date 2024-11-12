@@ -4,8 +4,7 @@
 @interface OKProtobufHelper : NSObject
 
 // Main methods
-+ (id)receiveOne:(id)messages response:(NSString *)response error:(NSError **)error;
-+ (id)receiveOneWithData:(NSData *)data messages:(id)messages error:(NSError **)error;
++ (id)receiveOne:(NSData *)data messages:(id)messages error:(NSError **)error;
 + (NSDictionary *)decodeProtocol:(NSData *)data error:(NSError **)error;
 + (id)createMessageFromType:(id)messages typeId:(NSInteger)typeId error:(NSError **)error;
 + (NSData *)buildBuffer:(NSString *)name params:(NSDictionary *)params messages:(NSDictionary *)messages;

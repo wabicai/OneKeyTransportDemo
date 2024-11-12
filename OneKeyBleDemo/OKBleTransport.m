@@ -302,7 +302,7 @@ static NSString *const kClassicServiceUUID = @"00000001-0000-1000-8000-00805f9b3
         if (self.buffer.length >= self.bufferLength) {
             // Process complete buffer
             NSError *responseError = nil;
-            NSDictionary *response = [OKProtobufHelper receiveOneWithData:self.buffer 
+            NSDictionary *response = [OKProtobufHelper receiveOne:self.buffer 
                                                              messages:self.messages 
                                                                error:&responseError];
             NSLog(@"hexStringFromData Buffer: %@", [self hexStringFromData:self.buffer]);

@@ -260,12 +260,39 @@
     // Prepare parameters according to the protocol
     NSDictionary *params = @{
         @"addressNArray": addressN,
-        @"showDisplay": @NO,
+        @"showDisplay": @YES,
         @"chainId": @1  // Ethereum mainnet chain ID
     };
     
+    __weak typeof(self) weakSelf = self;
     [self.bleTransport sendRequest:@"EthereumGetAddressOneKey" params:params completion:^(NSDictionary *response, NSError *error) {
-        [self logResponse:@"EthereumGetAddressOneKey" response:response error:error];
+        if (error) {
+            [weakSelf appendLog:[NSString stringWithFormat:@"❌ Error: %@", error.localizedDescription]];
+            return;
+        }
+        NSLog(@"🔍 Response: %@", response);
+        
+        // Check if we received a ButtonRequest
+        if ([response[@"type"] isEqualToString:@"ButtonRequest"]) {
+            [weakSelf appendLog:@"📱 Please confirm on device..."];
+            
+            // Send confirmation request
+            [weakSelf.bleTransport sendRequest:@"ButtonAck" params:@{} completion:^(NSDictionary *addressResponse, NSError *addressError) {
+                if (addressError) {
+                    [weakSelf appendLog:[NSString stringWithFormat:@"❌ Error: %@", addressError.localizedDescription]];
+                    return;
+                }
+                
+                NSString *address = addressResponse[@"message"][@"address"];
+                if (address) {
+                    [weakSelf appendLog:[NSString stringWithFormat:@"✅ EVM Address: %@", address]];
+                } else {
+                    [weakSelf appendLog:@"❌ Failed to get address"];
+                }
+                
+                [weakSelf logResponse:@"EthereumGetAddressOneKey" response:addressResponse error:addressError];
+            }];
+        }
     }];
 }
 
