@@ -367,4 +367,50 @@ static NSString *const kClassicServiceUUID = @"00000001-0000-1000-8000-00805f9b3
     NSRange range = [regex rangeOfFirstMatchInString:name options:0 range:NSMakeRange(0, name.length)];
     return range.location != NSNotFound;
 }
+
+- (void)sendPinToDevice:(NSString *)pin completion:(void(^)(BOOL success, NSError *error))completion {
+    [self appendToLog:@"📤 Sending PIN to device..."];
+    
+    // 构建 PIN 请求参数
+    NSDictionary *params = @{
+        @"pin": pin
+    };
+    
+    // 发送 PinMatrixAck 请求
+    [self sendRequest:@"PinMatrixAck" params:params completion:^(NSDictionary *response, NSError *error) {
+        if (error) {
+            [self appendToLog:@"❌ Failed to send PIN"];
+            if (completion) {
+                completion(NO, error);
+            }
+            return;
+        }
+        
+        [self appendToLog:@"✅ PIN sent successfully"];
+        [self appendToLog:[NSString stringWithFormat:@"📥 Device response: %@", response]];
+        
+        if ([response[@"type"] isEqualToString:@"Failure"] && 
+            [response[@"message"][@"message"] isEqualToString:@"PIN invalid"]) {
+            NSError *pinError = [NSError errorWithDomain:@"OKBleTransport" 
+                                                  code:1002 
+                                              userInfo:@{
+                NSLocalizedDescriptionKey: @"Invalid PIN"
+            }];
+            if (completion) {
+                completion(NO, pinError);
+            }
+        } else {
+            // 其他情况都视为成功
+            if (completion) {
+                completion(YES, nil);
+            }
+        }
+    }];
+}
+
+// 添加日志辅助方法
+- (void)appendToLog:(NSString *)message {
+    NSLog(@"%@", message);
+    // 如果需要，这里可以添加更多的日志记录逻辑
+}
 @end 

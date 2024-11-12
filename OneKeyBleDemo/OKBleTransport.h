@@ -25,5 +25,7 @@
 - (void)sendRequest:(NSString *)command 
              params:(NSDictionary *)params 
          completion:(void(^)(NSDictionary *response, NSError *error))completion;
+- (void)sendPinToDevice:(NSString *)pin 
+             completion:(void(^)(BOOL success, NSError *error))completion;
 
 @end 

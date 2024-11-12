@@ -16,6 +16,7 @@
 		363EADA52CE229160081525A /* MessagesManagement.pbobjc.m in Sources */ = {isa = PBXBuildFile; fileRef = 363EAD9F2CE229160081525A /* MessagesManagement.pbobjc.m */; };
 		363EADA82CE22A760081525A /* OKBleManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 363EADA62CE229BD0081525A /* OKBleManager.m */; };
 		363EADAC2CE23A310081525A /* MessagesEthereumOnekey.pbobjc.m in Sources */ = {isa = PBXBuildFile; fileRef = 363EADAB2CE23A310081525A /* MessagesEthereumOnekey.pbobjc.m */; };
+		363EADAF2CE30AD00081525A /* OKPinMatrixView.m in Sources */ = {isa = PBXBuildFile; fileRef = 363EADAD2CE30AD00081525A /* OKPinMatrixView.m */; };
 		369E1AB62CDE8E7400D72092 /* (null) in Sources */ = {isa = PBXBuildFile; };
 		36EE67082CD4D6C100B7E736 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 36EE67072CD4D6C100B7E736 /* AppDelegate.m */; };
 		36EE670B2CD4D6C100B7E736 /* SceneDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 36EE670A2CD4D6C100B7E736 /* SceneDelegate.m */; };
@@ -66,6 +67,8 @@
 		363EADA72CE229BD0081525A /* OKBleManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = OKBleManager.h; sourceTree = "<group>"; };
 		363EADAA2CE23A310081525A /* MessagesEthereumOnekey.pbobjc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = MessagesEthereumOnekey.pbobjc.h; path = protoInstance/MessagesEthereumOnekey.pbobjc.h; sourceTree = "<group>"; };
 		363EADAB2CE23A310081525A /* MessagesEthereumOnekey.pbobjc.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = MessagesEthereumOnekey.pbobjc.m; path = protoInstance/MessagesEthereumOnekey.pbobjc.m; sourceTree = "<group>"; };
+		363EADAD2CE30AD00081525A /* OKPinMatrixView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = OKPinMatrixView.m; sourceTree = "<group>"; };
+		363EADAE2CE30AD00081525A /* OKPinMatrixView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OKPinMatrixView.h; sourceTree = "<group>"; };
 		36EE67032CD4D6C100B7E736 /* OneKeyBleDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OneKeyBleDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		36EE67062CD4D6C100B7E736 /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
 		36EE67072CD4D6C100B7E736 /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
@@ -170,6 +173,8 @@
 		36EE67052CD4D6C100B7E736 /* OneKeyBleDemo */ = {
 			isa = PBXGroup;
 			children = (
+				363EADAE2CE30AD00081525A /* OKPinMatrixView.h */,
+				363EADAD2CE30AD00081525A /* OKPinMatrixView.m */,
 				363EADA72CE229BD0081525A /* OKBleManager.h */,
 				363EADA62CE229BD0081525A /* OKBleManager.m */,
 				36EE674D2CD4E66100B7E736 /* OKBleTransport.h */,
@@ -438,6 +443,7 @@
 				363EADA82CE22A760081525A /* OKBleManager.m in Sources */,
 				363EADA42CE229160081525A /* MessagesEthereum.pbobjc.m in Sources */,
 				363EADA32CE229160081525A /* MessagesCommon.pbobjc.m in Sources */,
+				363EADAF2CE30AD00081525A /* OKPinMatrixView.m in Sources */,
 				363EADAC2CE23A310081525A /* MessagesEthereumOnekey.pbobjc.m in Sources */,
 				363EADA12CE229160081525A /* MessagesEthereumDefinitions.pbobjc.m in Sources */,
 				36EE675D2CD4E66100B7E736 /* OKProtobufHelper.m in Sources */,

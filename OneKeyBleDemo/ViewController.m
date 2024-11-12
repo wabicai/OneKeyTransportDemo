@@ -1,6 +1,7 @@
 #import "ViewController.h"
 #import "OKBleTransport.h"
 #import "OKProtobufHelper.h"
+#import "OKPinMatrixView.h"
 
 @interface ViewController ()
 
@@ -8,6 +9,7 @@
 @property (nonatomic, strong, readwrite) UITextView *logTextView;
 @property (nonatomic, strong, readwrite) UIScrollView *scrollView;
 @property (nonatomic, strong, readwrite) UIButton *lockDeviceButton;
+@property (nonatomic, copy, readwrite) void (^pinCompletionHandler)(NSString *pin);
 
 @end
 
@@ -199,10 +201,10 @@
 
 - (void)evmAddressButtonTapped:(UIButton *)sender {
     [self appendLog:@"📍 Get EVM Address button tapped"];
-    [self performGetEvmAddress];
+    [self performEvmGetAddress];
 }
 
-- (void)performGetEvmAddress {
+- (void)performEvmGetAddress {
     NSString *deviceUUID = self.bleTransport.connectedPeripheral.identifier.UUIDString;
     if (!deviceUUID) {
         [self appendLog:@"❌ No device connected"];
@@ -246,36 +248,69 @@
         }
         [weakSelf appendLog:[NSString stringWithFormat:@"🔍 Response: %@", response]];
         
-        // Check if we received a ButtonRequest
-        if ([response[@"type"] isEqualToString:@"ButtonRequest"]) {
-            [weakSelf appendLog:@"📱 Please confirm on device..."];
-            
-            // Send confirmation request
-            [weakSelf.bleTransport sendRequest:@"ButtonAck" params:@{} completion:^(NSDictionary *addressResponse, NSError *addressError) {
-                if (addressError) {
-                    [weakSelf appendLog:[NSString stringWithFormat:@"❌ Error: %@", addressError.localizedDescription]];
+        // Handle PIN Matrix Request
+        if ([response[@"type"] isEqualToString:@"PinMatrixRequest"]) {
+            [weakSelf appendLog:@"🔐 PIN required - showing PIN input dialog..."];
+            [weakSelf showPinInputDialog:^(NSString *pin) {
+                if (!pin) {
+                    [weakSelf appendLog:@"❌ PIN input cancelled"];
                     return;
                 }
                 
-                [weakSelf appendLog:@"✅ Received address response"];
-                
-                NSString *address = addressResponse[@"message"][@"address"];
-                if (address) {
-                    [weakSelf appendLog:[NSString stringWithFormat:@"✅ EVM Address: %@", address]];
-                    // 创建一个新的响应字典，只包含必要的信息
-                    NSDictionary *simplifiedResponse = @{
-                        @"type": addressResponse[@"type"],
-                        @"message": @{
-                            @"address": address
-                        }
-                    };
-                    [weakSelf logResponse:@"EthereumGetAddressOneKey" response:simplifiedResponse error:addressError];
-                } else {
-                    [weakSelf appendLog:@"❌ Failed to get address"];
-                }
+                // Send PIN response
+                [weakSelf.bleTransport sendRequest:@"PinMatrixAck" params:@{@"pin": pin} completion:^(NSDictionary *pinResponse, NSError *pinError) {
+                    if (pinError) {
+                        [weakSelf appendLog:[NSString stringWithFormat:@"❌ PIN Error: %@", pinError.localizedDescription]];
+                        return;
+                    }
+                    [weakSelf handleEvmAddressResponse:pinResponse];
+                }];
             }];
+            return;
         }
+        
+        // Handle normal response
+        [weakSelf handleEvmAddressResponse:response];
     }];
+}
+
+- (void)showPinInputDialog:(void(^)(NSString *pin))completion {
+    self.pinCompletionHandler = completion;
+    
+    OKPinMatrixView *pinView = [[OKPinMatrixView alloc] initWithFrame:self.view.bounds];
+    pinView.delegate = self;
+    [self.view addSubview:pinView];
+    [pinView show];
+}
+
+- (void)handleEvmAddressResponse:(NSDictionary *)response {
+    // Handle Button Request
+    if ([response[@"type"] isEqualToString:@"ButtonRequest"]) {
+        [self appendLog:@"📱 Please confirm on device..."];
+        
+        [self.bleTransport sendRequest:@"ButtonAck" params:@{} completion:^(NSDictionary *addressResponse, NSError *addressError) {
+            if (addressError) {
+                [self appendLog:[NSString stringWithFormat:@"❌ Error: %@", addressError.localizedDescription]];
+                return;
+            }
+            
+            [self appendLog:@"✅ Received address response"];
+            
+            NSString *address = addressResponse[@"message"][@"address"];
+            if (address) {
+                [self appendLog:[NSString stringWithFormat:@"✅ EVM Address: %@", address]];
+                NSDictionary *simplifiedResponse = @{
+                    @"type": addressResponse[@"type"],
+                    @"message": @{
+                        @"address": address
+                    }
+                };
+                [self logResponse:@"EthereumGetAddressOneKey" response:simplifiedResponse error:addressError];
+            } else {
+                [self appendLog:@"❌ Failed to get address"];
+            }
+        }];
+    }
 }
 
 - (void)logResponse:(NSString *)command response:(NSDictionary *)response error:(NSError *)error {
@@ -350,6 +385,45 @@
             [self.logTextView setContentOffset:bottomOffset animated:YES];
         }
     });
+}
+
+#pragma mark - OKPinMatrixViewDelegate
+
+- (void)pinMatrixView:(UIView *)view didEnterPin:(NSString *)pin {
+    [self appendLog:@"🔐 Sending PIN..."];
+    
+    if (self.pinCompletionHandler) {
+        // Send PIN response via BleTransport
+        [self.bleTransport sendPinToDevice:pin completion:^(BOOL success, NSError *error) {
+            if (success) {
+                [self appendLog:@"✅ PIN sent successfully"];
+                // Call the completion handler after successful PIN sending
+                self.pinCompletionHandler(pin);
+                self.pinCompletionHandler = nil;
+            } else {
+                [self appendLog:[NSString stringWithFormat:@"❌ Failed to send PIN: %@", error.localizedDescription]];
+                // Show error alert
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Error"
+                                                                                message:error.localizedDescription
+                                                                         preferredStyle:UIAlertControllerStyleAlert];
+                    [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+                    [self presentViewController:alert animated:YES completion:nil];
+                });
+            }
+        }];
+    }
+    
+    // Hide PIN matrix view with animation
+    [(OKPinMatrixView *)view hide];
+}
+
+- (void)pinMatrixViewDidCancel:(UIView *)view {
+    if (self.pinCompletionHandler) {
+        self.pinCompletionHandler(nil);
+        self.pinCompletionHandler = nil;
+    }
+    [(OKPinMatrixView *)view hide];
 }
 
 @end
